@@ -1,3 +1,59 @@
+## End-to-End Quick Start (Fresh Device)
+
+Follow these steps from zero to a working AriaNg UI and Windows share.
+
+1) Prepare on PC (Windows)
+
+```bash
+# Clone the repo
+git clone https://github.com/lishuren/DietPi-NanoPi.git
+cd DietPi-NanoPi
+
+# Optional: stage AriaNg assets from a local ZIP
+bash scripts/download_ariang.sh 'd:/dev/DietPi-NanoPi/downloads/AriaNg-1.3.12.zip'
+```
+
+2) Flash DietPi image to microSD
+- Download the DietPi image for your NanoPi model from dietpi.com.
+- Use Balena Etcher (or Rufus) to flash the image to the microSD card.
+- After flashing, mount the boot partition and copy `config/dietpi.txt` from this repo to the card’s root to preseed settings.
+
+3) Boot and find IP
+- Insert the microSD into the NanoPi, connect Ethernet and power.
+- Wait ~2–3 minutes for first boot; find the device IP via your router DHCP list.
+
+4) Upload repo to NanoPi (PC → Pi)
+
+```bash
+scp -r ./scripts ./config ./downloads root@<NANOPI_IP>:/root/DietPi-NanoPi
+```
+
+---
+
+5) Configure on the NanoPi (Pi-side only)
+
+```bash
+ssh root@<NANOPI_IP>
+cd /root/DietPi-NanoPi
+
+# Base provisioning (mounts USB, installs web stack/services)
+./scripts/provision.sh
+
+# One-shot AriaNg install
+./scripts/setup_ariang.sh
+
+# One-shot Samba setup
+./scripts/setup_samba.sh --guest
+# Or with user credentials:
+# ./scripts/setup_samba.sh --user dietpi --password "yourpass"
+
+# VPN setup (UI + subscription + enable)
+./scripts/install_vpn_web_ui.sh
+# Replace with your actual subscription URL
+./scripts/update_subscription.sh "https://example.com/path/to/subscription.yaml"
+./scripts/toggle_vpn.sh on
+```
+
 ## Samba Access
 
 Setup (one command on NanoPi):
@@ -12,6 +68,12 @@ cd /root/DietPi-NanoPi
 ```
 
 Windows:
+
+6) Verify & access
+- AriaNg UI: http://<NANOPI_IP>/ariang/
+- Windows share: \\<NANOPI_IP>\downloads
+- VPN Control: http://<NANOPI_IP>/vpn.php
+
 - Open `\\<NANOPI_IP>\downloads` in Explorer (e.g., `\\192.168.0.139\downloads`).
 - Map a drive via “This PC” → “Map network drive…”.
 - If prompted for credentials, use the Samba user (e.g., `dietpi`).
