@@ -3,6 +3,9 @@
 # Script to install the VPN Web Control Page
 # This creates a simple PHP page to toggle the VPN from the browser.
 
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WEB_ROOT="/var/www/html"
 PHP_FILE="$WEB_ROOT/vpn.php"
 
@@ -12,13 +15,29 @@ UPDATE_SCRIPT="/usr/local/bin/update_subscription.sh"
 
 echo "Installing VPN Web Control..."
 
-# 1. Copy scripts to system path
-# We assume we are running from the scripts directory
-cp ./toggle_vpn.sh "$TOGGLE_SCRIPT"
-chmod +x "$TOGGLE_SCRIPT"
+# Ensure web server is installed
+if ! command -v php >/dev/null 2>&1; then
+    echo "PHP not found; installing..."
+    apt-get update && apt-get install -y php
+fi
 
-cp ./update_subscription.sh "$UPDATE_SCRIPT"
-chmod +x "$UPDATE_SCRIPT"
+# Ensure web root exists
+mkdir -p "$WEB_ROOT"
+
+# 1. Copy scripts to system path
+if [ -f "$SCRIPT_DIR/toggle_vpn.sh" ]; then
+    cp "$SCRIPT_DIR/toggle_vpn.sh" "$TOGGLE_SCRIPT"
+    chmod +x "$TOGGLE_SCRIPT"
+else
+    echo "Warning: toggle_vpn.sh not found at $SCRIPT_DIR"
+fi
+
+if [ -f "$SCRIPT_DIR/update_subscription.sh" ]; then
+    cp "$SCRIPT_DIR/update_subscription.sh" "$UPDATE_SCRIPT"
+    chmod +x "$UPDATE_SCRIPT"
+else
+    echo "Warning: update_subscription.sh not found at $SCRIPT_DIR"
+fi
 
 # 2. Configure Sudoers
 # Allow www-data to run the scripts as root without password

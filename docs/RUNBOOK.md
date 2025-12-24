@@ -63,11 +63,53 @@ You can run the provisioning directly from your Mac using the deploy script.
 
 **Option 2: Manual (via SSH)**
 1. SSH into the NanoPi: `ssh root@<ip-address>` (Default pass: `dietpi`).
-2. Copy this repository to the NanoPi (or just the scripts/config).
+2. Copy only what’s needed (lighter than the whole repo):
+    ```bash
+    # From your PC, in the repo root
+    scp -r ./scripts ./config root@<ip-address>:/root/DietPi-NanoPi
+    # If using the key from the optional section above:
+    scp -i ~/.ssh/dietpi_key -r ./scripts ./config root@<ip-address>:/root/DietPi-NanoPi
+    ```
+    Example for your device (IP 192.168.0.139):
+    ```bash
+    scp -r ./scripts ./config root@192.168.0.139:/root/DietPi-NanoPi
+    scp -i ~/.ssh/dietpi_key -r ./scripts ./config root@192.168.0.139:/root/DietPi-NanoPi
+    ```
+    If you prefer to sync everything (larger transfer):
+    ```bash
+    scp -r ./ root@<ip-address>:/root/DietPi-NanoPi
+    ```
 3. Run the provision script:
 ```bash
+cd /root/DietPi-NanoPi
 ./scripts/provision.sh
 ```
+If you pull updates to the repo later, re-run the `scp` step to sync the latest `scripts/` and `config/` before re-provisioning.
+
+### Optional: Set Up SSH Key Access
+This lets you log in without typing the password each time.
+
+1. Generate a key on your Mac/PC (bash/Git Bash):
+    ```bash
+    ssh-keygen -t ed25519 -f ~/.ssh/dietpi_key -N ""
+    ```
+2. Copy the public key to the NanoPi (prompts for your current password once):
+    ```bash
+    ssh-copy-id -i ~/.ssh/dietpi_key.pub root@<ip-address>
+    ```
+    If `ssh-copy-id` is unavailable:
+    ```bash
+    cat ~/.ssh/dietpi_key.pub | ssh root@<ip-address> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+    ```
+3. Reconnect using the key (no password prompt):
+    ```bash
+    ssh -i ~/.ssh/dietpi_key root@<ip-address>
+    ```
+    Example for your device (IP 192.168.0.139):
+    ```bash
+    ssh -i ~/.ssh/dietpi_key root@192.168.0.139
+    ```
+
 
 ## 5. Accessing the WebUI
 Once the setup is complete, you can manage your downloads via the web interface.
@@ -101,6 +143,39 @@ If you have a subscription link (http/https), run this command on the NanoPi:
 ./scripts/update_subscription.sh "YOUR_SUBSCRIPTION_URL_HERE"
 ```
 *Note: Wrap the URL in quotes to avoid issues with special characters.*
+
+**Option C: Pre-download Locally and Upload (Offline-friendly)**
+If the NanoPi cannot reach GitHub, download on your PC and upload:
+
+1. On your PC (bash/Git Bash):
+    ```bash
+    cd D:/dev/DietPi-NanoPi
+    chmod +x ./scripts/download_mihomo.sh
+    ./scripts/download_mihomo.sh
+    ```
+    If downloads are blocked, manually place these files in `downloads/`:
+    - `mihomo` (from `mihomo-linux-armv7-v1.18.1.gz`, extracted and renamed)
+    - `Country.mmdb`
+    - `GeoSite.dat`
+
+2. Upload to NanoPi:
+    ```bash
+    scp -r ./downloads ./scripts ./config root@192.168.0.139:/root/DietPi-NanoPi
+    ```
+
+3. On the NanoPi:
+    ```bash
+    ssh -i ~/.ssh/dietpi_key root@192.168.0.139
+    cd /root/DietPi-NanoPi
+    ./scripts/provision.sh
+    ```
+
+Troubleshooting: Filenames are case-sensitive. If needed on the NanoPi:
+```bash
+cd /root/DietPi-NanoPi/downloads
+mv country.mmdb Country.mmdb 2>/dev/null || true
+mv geosite.dat GeoSite.dat 2>/dev/null || true
+```
 
 ### Usage
 **Method 1: Web Interface (Recommended)**

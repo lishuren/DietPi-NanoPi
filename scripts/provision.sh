@@ -3,10 +3,17 @@
 # Provision Script for NanoPi NEO Download Station
 # Run this script on the NanoPi as root.
 
+set -euo pipefail
+
+# Resolve paths relative to this script to avoid CWD issues
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 MOUNT_POINT="/mnt/usb_drive"
 CONFIG_DIR="/etc/aria2"
 USER="dietpi"
 GROUP="dietpi"
+ARIA_CONF_SRC="$REPO_ROOT/config/aria2.conf"
 
 # 1. Detect USB Drive
 echo "Detecting USB drive..."
@@ -64,12 +71,19 @@ chown -R $USER:$GROUP "$MOUNT_POINT"
 
 # 7. Install Configuration
 echo "Installing Aria2 configuration..."
+if ! command -v aria2c >/dev/null 2>&1; then
+    echo "aria2 not found; installing..."
+    apt-get update && apt-get install -y aria2
+fi
+if [ ! -f "$ARIA_CONF_SRC" ]; then
+    echo "Error: aria2.conf not found at $ARIA_CONF_SRC" >&2
+    exit 1
+fi
 mkdir -p "$CONFIG_DIR"
-cp ../config/aria2.conf "$CONFIG_DIR/aria2.conf"
-# Ensure the config points to the right place (sed replacement just in case)
-sed -i "s|dir=.*|dir=$MOUNT_POINT/downloads|" "$CONFIG_DIR/aria2.conf"
-sed -i "s|input-file=.*|input-file=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
-sed -i "s|save-session=.*|save-session=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
+cp "$ARIA_CONF_SRC" "$CONFIG_DIR/aria2.conf"
+sed -i "s|^dir=.*|dir=$MOUNT_POINT/downloads|" "$CONFIG_DIR/aria2.conf"
+sed -i "s|^input-file=.*|input-file=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
+sed -i "s|^save-session=.*|save-session=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
 
 # 8. Setup Systemd Service
 echo "Configuring Systemd service..."
@@ -106,22 +120,43 @@ fi
 # Disable APM (Advanced Power Management) and Spindown
 # -B 255: Disable APM
 # -S 0: Disable spindown timer
-hdparm -B 255 -S 0 "$USB_PART" || echo "Warning: Could not set hdparm for $USB_PART (Drive might not support it)"
+hdparm -B 255 -S 0 "$USB_PART" || { echo "Warning: Could not set hdparm for $USB_PART (Drive might not support it)"; true; }
 
 # Disable USB Autosuspend via Kernel Parameter (Persistent)
-# We append usbcore.autosuspend=-1 to /boot/cmdline.txt if not present
-if ! grep -q "usbcore.autosuspend=-1" /boot/cmdline.txt; then
-    sed -i 's/$/ usbcore.autosuspend=-1/' /boot/cmdline.txt
-    echo "Added usbcore.autosuspend=-1 to /boot/cmdline.txt"
+# Only if cmdline exists
+if [ -f /boot/cmdline.txt ]; then
+    if ! grep -q "usbcore.autosuspend=-1" /boot/cmdline.txt; then
+        sed -i 's/$/ usbcore.autosuspend=-1/' /boot/cmdline.txt
+        echo "Added usbcore.autosuspend=-1 to /boot/cmdline.txt"
+    fi
+else
+    echo "Warning: /boot/cmdline.txt not found; skipping autosuspend tweak"
 fi
 
 # 10. Configure Samba Share
 echo "Configuring Samba share..."
 SMB_CONF="/etc/samba/smb.conf"
 
-# Backup original config
-if [ ! -f "$SMB_CONF.bak" ]; then
+if ! command -v smbd >/dev/null 2>&1; then
+    echo "samba not found; installing..."
+    apt-get update && apt-get install -y samba
+fi
+
+# Backup original config if present
+if [ -f "$SMB_CONF" ] && [ ! -f "$SMB_CONF.bak" ]; then
     cp "$SMB_CONF" "$SMB_CONF.bak"
+fi
+
+# Ensure a baseline smb.conf exists
+if [ ! -f "$SMB_CONF" ]; then
+    cat <<'EOF' > "$SMB_CONF"
+[global]
+   workgroup = WORKGROUP
+   server string = DietPi Samba Server
+   security = user
+   map to guest = Bad User
+   dns proxy = no
+EOF
 fi
 
 # Add 'downloads' share definition if not present
@@ -138,25 +173,37 @@ if ! grep -q "\[downloads\]" "$SMB_CONF"; then
    writeable = yes
 EOF
     echo "Added [downloads] share to $SMB_CONF"
-    systemctl restart smbd nmbd
+    systemctl restart smbd nmbd || echo "Warning: could not restart smbd/nmbd"
 else
     echo "Samba share [downloads] already exists."
 fi
 
 # 11. Install Clash (Mihomo)
 echo "Installing Clash (Mihomo)..."
-chmod +x ./install_clash.sh
-./install_clash.sh
+if [ -f "$SCRIPT_DIR/install_clash.sh" ]; then
+    chmod +x "$SCRIPT_DIR/install_clash.sh"
+    "$SCRIPT_DIR/install_clash.sh"
+else
+    echo "Warning: install_clash.sh not found at $SCRIPT_DIR"
+fi
 
 # 12. Install VPN Web Control
 echo "Installing VPN Web Control..."
-chmod +x ./install_vpn_web_ui.sh
-./install_vpn_web_ui.sh
+if [ -f "$SCRIPT_DIR/install_vpn_web_ui.sh" ]; then
+    chmod +x "$SCRIPT_DIR/install_vpn_web_ui.sh"
+    "$SCRIPT_DIR/install_vpn_web_ui.sh"
+else
+    echo "Warning: install_vpn_web_ui.sh not found at $SCRIPT_DIR"
+fi
 
 # 13. Install Watchdog (Monitor Mount)
 echo "Installing Watchdog script..."
-cp ./monitor_mount.sh /usr/local/bin/monitor_mount.sh
-chmod +x /usr/local/bin/monitor_mount.sh
+if [ -f "$SCRIPT_DIR/monitor_mount.sh" ]; then
+    cp "$SCRIPT_DIR/monitor_mount.sh" /usr/local/bin/monitor_mount.sh
+    chmod +x /usr/local/bin/monitor_mount.sh
+else
+    echo "Warning: monitor_mount.sh not found at $SCRIPT_DIR"
+fi
 
 # Add to crontab if not exists (Run every minute)
 CRON_JOB="* * * * * /usr/local/bin/monitor_mount.sh >> /var/log/monitor_mount.log 2>&1"

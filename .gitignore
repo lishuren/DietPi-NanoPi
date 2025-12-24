@@ -28,5 +28,9 @@ secrets/
 
 # OS
 desktop.ini
-DietPi_NanoPiNEO2-ARMv8-Bookworm.img.xz
 sh
+downloads/country.mmdb
+downloads/geosite.dat
+downloads/mihomo
+scripts/DietPi_NanoPiNEO.7z
+scripts/DietPi_NanoPiNEO.7z

@@ -5,7 +5,7 @@
 # ----- Global Options -----
 AUTO_SETUP_AUTOMATED=1
 AUTO_SETUP_GLOBAL_PASSWORD=dietpi
-AUTO_SETUP_TIMEZONE=America/New_York
+AUTO_SETUP_TIMEZONE=Asia/Shanghai
 AUTO_SETUP_KEYBOARD_LAYOUT=us
 
 # ----- Network Options -----
