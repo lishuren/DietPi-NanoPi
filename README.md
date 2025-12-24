@@ -2,7 +2,13 @@
 
 Scripts and configuration to provision DietPi on NanoPi devices.
 
+Design philosophy: **Infrastructure as Code**. Provisioning is code-driven — versioned scripts and configs in this repo define and reproduce the device state end-to-end. See [docs/RUNBOOK.md](docs/RUNBOOK.md) for setup and operations.
+
 Repository layout
+
+Quick start: AriaNg step-by-step install is documented in [docs/RUNBOOK.md](docs/RUNBOOK.md) under “Step-by-Step: Install AriaNg”. It covers Pi-side direct download and PC-side staging + deploy, plus verification and troubleshooting.
+
+For file sharing from Windows/Linux, see the “Samba Access” section in [docs/RUNBOOK.md](docs/RUNBOOK.md) with a single-command setup script.
 
 - `config/` — configuration files
 - `docs/` — project documentation

@@ -62,12 +62,37 @@ else
     exit 1
 fi
 
+# 5.1 Verify filesystem type and readability
+FSTYPE=$(findmnt -n -o FSTYPE "$MOUNT_POINT" || echo "")
+echo "Filesystem type: ${FSTYPE:-unknown}"
+if [ -z "$FSTYPE" ]; then
+    echo "Error: Could not determine filesystem type for $MOUNT_POINT"
+    exit 1
+fi
+if [ "$FSTYPE" != "ext4" ]; then
+    echo "Warning: Expected ext4, but mounted filesystem is '$FSTYPE'."
+    echo "- Non-Linux filesystems (exfat/ntfs/vfat) may not support Unix permissions."
+    echo "- Consider backing up data and reformatting the USB partition to ext4."
+fi
+
+# Quick sanity check: ensure the mount directory is readable
+if ! ls "$MOUNT_POINT" > /dev/null 2>&1; then
+    echo "Error: Cannot read $MOUNT_POINT; filesystem may be corrupted or incompatible."
+    echo "Check kernel logs (dmesg) for details and run fsck after umount."
+    exit 1
+fi
+
 # 6. Setup Directory Structure on USB Drive
 echo "Setting up USB drive directories..."
 mkdir -p "$MOUNT_POINT/downloads"
 mkdir -p "$MOUNT_POINT/aria2"
 touch "$MOUNT_POINT/aria2/aria2.session"
-chown -R $USER:$GROUP "$MOUNT_POINT"
+# Only attempt chown on filesystems that support Unix ownership
+if [ "$FSTYPE" = "ext4" ]; then
+    chown -R $USER:$GROUP "$MOUNT_POINT"
+else
+    echo "Skipping chown on $MOUNT_POINT (fstype=$FSTYPE)."
+fi
 
 # 7. Install Configuration
 echo "Installing Aria2 configuration..."
@@ -84,6 +109,21 @@ cp "$ARIA_CONF_SRC" "$CONFIG_DIR/aria2.conf"
 sed -i "s|^dir=.*|dir=$MOUNT_POINT/downloads|" "$CONFIG_DIR/aria2.conf"
 sed -i "s|^input-file=.*|input-file=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
 sed -i "s|^save-session=.*|save-session=$MOUNT_POINT/aria2/aria2.session|" "$CONFIG_DIR/aria2.conf"
+
+# 7.1 Install Web Stack (Lighttpd + PHP) and AriaNg
+echo "Installing web stack and AriaNg..."
+if [ -f "$SCRIPT_DIR/install_web_stack.sh" ]; then
+    chmod +x "$SCRIPT_DIR/install_web_stack.sh"
+    "$SCRIPT_DIR/install_web_stack.sh"
+else
+    echo "Warning: install_web_stack.sh not found at $SCRIPT_DIR"
+fi
+if [ -f "$SCRIPT_DIR/install_ariang.sh" ]; then
+    chmod +x "$SCRIPT_DIR/install_ariang.sh"
+    "$SCRIPT_DIR/install_ariang.sh"
+else
+    echo "Warning: install_ariang.sh not found at $SCRIPT_DIR"
+fi
 
 # 8. Setup Systemd Service
 echo "Configuring Systemd service..."

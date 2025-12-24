@@ -1,8 +1,164 @@
+## Samba Access
+
+Setup (one command on NanoPi):
+
+```bash
+cd /root/DietPi-NanoPi
+# Guest access (no credentials):
+./scripts/setup_samba.sh --guest
+
+# Or user mode:
+./scripts/setup_samba.sh --user dietpi --password "yourpass"
+```
+
+Windows:
+- Open `\\<NANOPI_IP>\downloads` in Explorer (e.g., `\\192.168.0.139\downloads`).
+- Map a drive via “This PC” → “Map network drive…”.
+- If prompted for credentials, use the Samba user (e.g., `dietpi`).
+
+Linux:
+- `sudo apt-get install -y cifs-utils`
+- `sudo mkdir -p /mnt/nanopi_downloads`
+- `sudo mount -t cifs //<NANOPI_IP>/downloads /mnt/nanopi_downloads -o username=dietpi`
+
+Troubleshooting:
+- Verify services: `systemctl status smbd nmbd`
+- Validate config: `testparm -s`
+- Ensure share path exists: `/mnt/usb_drive/downloads` with `dietpi:dietpi` ownership.
+- Windows: clear saved creds (Credential Manager) and retry; confirm you’re using `SMB2` (SMB1 not required).
+## AriaNg Dist Normalization & Verification
+
+The installer now automatically normalizes AriaNg assets:
+
+- Flattens common nested folders: `ariang`, `AriaNg`, and `dist`.
+- Searches recursively for `index.html` and lifts that directory’s contents to the top level so `/var/www/html/ariang/index.html` exists.
+
+### Deploy (recommended)
+
+Use the deploy helper to sync the repo and run the installer on the NanoPi:
+
+```bash
+bash scripts/deploy.sh <NANOPI_IP> scripts/install_ariang.sh
+```
+
+Alternatively, SSH into the NanoPi and run:
+
+```bash
+cd /root/DietPi-NanoPi
+./scripts/install_ariang.sh
+```
+
+### Verify
+
+Check that `index.html` exists at the top level and the server responds correctly:
+
+```bash
+ls -l /var/www/html/ariang
+curl -I http://localhost/ariang
+curl -I http://localhost/ariang/
+```
+
+Expected:
+
+- `index.html` is present in `/var/www/html/ariang` (not only inside a subfolder).
+- HTTP `200 OK` for `/ariang/`, or a `301` redirect to `/ariang/` from `/ariang`.
+- Not `403`/`404`.
+
+If permissions are off, apply:
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/ariang
+sudo find /var/www/html/ariang -type d -exec chmod 755 {} \;
+sudo find /var/www/html/ariang -type f -exec chmod 644 {} \;
+sudo systemctl restart lighttpd
+```
+
+### Downloader Fallback (PC-side)
+
+If `scripts/download_ariang.sh` fails due to network restrictions, manually stage the `dist/` assets:
+
+1. Download the AriaNg tag source archive (e.g. `refs/tags/1.3.12.zip`) from GitHub.
+2. Extract it on your PC and locate the `dist/` folder.
+3. Copy the contents of `dist/` into `downloads/ariang/` in your repo.
+4. Re-run the deploy+install steps above.
+
+This ensures `/var/www/html/ariang/index.html` is present and served.
+
+### One-Shot: Install AriaNg
+
+Run one of the following on the NanoPi:
+
+- Use already staged assets (from repo `downloads/ariang`):
+```bash
+cd /root/DietPi-NanoPi
+./scripts/install_ariang.sh
+```
+
+- Install from a ZIP path (stages + installs in one go):
+```bash
+cd /root/DietPi-NanoPi
+./scripts/install_ariang.sh --zip /root/AriaNg-1.3.12.zip
+```
+
+- Install from a URL (downloads + stages + installs):
+```bash
+cd /root/DietPi-NanoPi
+./scripts/install_ariang.sh --url https://github.com/mayswind/AriaNg/releases/download/1.3.12/AriaNg-1.3.12.zip
+```
+
+### PC-side staging + deploy (optional)
+
+On your PC (Windows Git Bash):
+
+```bash
+bash scripts/download_ariang.sh
+# If you manually downloaded the ZIP, you can pass its path directly:
+bash scripts/download_ariang.sh 'd:/dev/DietPi-NanoPi/downloads/AriaNg-1.3.12.zip'
+# This will extract and stage assets into downloads/ariang/
+```
+
+Deploy and install on NanoPi:
+
+```bash
+scp -r ./downloads ./scripts ./config root@<NANOPI_IP>:/root/DietPi-NanoPi
+ssh root@<NANOPI_IP> 'cd /root/DietPi-NanoPi && ./scripts/install_ariang.sh'
+```
+
+### Verify on NanoPi
+
+```bash
+ls -la /var/www/html/ariang | grep index.html
+curl -I http://localhost/ariang
+curl -I http://localhost/ariang/
+```
+
+Expected:
+
+- `index.html` at `/var/www/html/ariang`. If missing, the installer places a placeholder page to avoid `403`.
+- `/ariang/` returns `200 OK` (or `301` then `200`).
+
+Fix permissions if needed:
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/ariang
+sudo find /var/www/html/ariang -type d -exec chmod 755 {} \;
+sudo find /var/www/html/ariang -type f -exec chmod 644 {} \;
+sudo systemctl restart lighttpd
+```
+
+Troubleshooting:
+
+- Still `403/404`: confirm `index.html` exists at the top level; re-run the installer.
+- Nested folders (e.g., `ariang/AriaNg/dist`): the installer flattens `ariang`, `AriaNg`, and `dist` automatically.
+- Network blocks: use browser download, then stage `dist` into `downloads/ariang` and redeploy.
+
 # NanoPi NEO Download Station Runbook
 
 ## 1. Overview
 This project transforms a NanoPi NEO into a robust, "always-on" download station using DietPi and Aria2. 
 The design philosophy is **Infrastructure as Code**: all configurations are stored locally in this repository. If the TF card fails, we can rebuild the system in minutes without data loss (assuming the USB drive is intact).
+
+Provisioning is code-driven: versioned scripts and configs in this repo define and reproduce the device state end-to-end.
 
 ## 2. Hardware Requirements
 - **Device:** NanoPi NEO (512MB RAM recommended)
@@ -84,6 +240,12 @@ You can run the provisioning directly from your Mac using the deploy script.
 cd /root/DietPi-NanoPi
 ./scripts/provision.sh
 ```
+Provisioning installs and configures:
+- Lighttpd + PHP (FastCGI) and deploys AriaNg UI
+- Aria2 daemon + systemd service
+- Samba share for `downloads`
+- Mihomo (Clash) and VPN Web UI (if present)
+
 If you pull updates to the repo later, re-run the `scp` step to sync the latest `scripts/` and `config/` before re-provisioning.
 
 ### Optional: Set Up SSH Key Access
@@ -118,6 +280,29 @@ Once the setup is complete, you can manage your downloads via the web interface.
     - **RPC Host:** `<ip-address>`
     - **RPC Port:** `6800`
     - **RPC Secret:** (Leave blank unless you uncommented it in `aria2.conf`)
+
+Examples for your device (IP 192.168.0.139):
+
+```text
+AriaNg: http://192.168.0.139/ariang
+```
+
+### Offline AriaNg Setup (if GitHub is blocked)
+On your PC (Git Bash):
+```bash
+cd D:/dev/DietPi-NanoPi
+chmod +x ./scripts/download_ariang.sh
+./scripts/download_ariang.sh
+# Upload staged assets to the device
+scp -r ./downloads/ariang root@<ip-address>:/root/DietPi-NanoPi/downloads/ariang
+```
+On the NanoPi:
+```bash
+cd /root/DietPi-NanoPi
+./scripts/install_web_stack.sh
+./scripts/install_ariang.sh
+```
+Then open: `http://<ip-address>/ariang`.
 
 ## 6. Accessing Files (Samba)
 You can access your downloaded files directly from your Mac or PC.
@@ -184,6 +369,12 @@ Go to `http://<ip-address>/vpn.php` in your browser.
 - **Update Subscription:** Paste your subscription URL into the text box and click **Update Config**. This will download the latest config and restart the service automatically.
 - The page shows the current status.
 
+Example for your device (IP 192.168.0.139):
+
+```text
+VPN Control: http://192.168.0.139/vpn.php
+```
+
 **Method 2: Command Line**
 ```bash
 # Turn VPN ON (Starts Clash, configures Aria2 to use proxy)
@@ -211,10 +402,44 @@ The script will remember your NanoPi's IP address after the first use (saved in 
 ./scripts/deploy.sh
 ```
 
-# Example: Full Provisioning (Re-run everything)
+Note: If `rsync` is not available on your PC, `deploy.sh` automatically falls back to `scp` to sync `scripts/`, `config/`, and `downloads/`.
+
+### Example: Full Provisioning (Re-run everything)
+```bash
 ./scripts/deploy.sh 192.168.1.100 provision.sh
 ```
 
 ## 9. Maintenance
 - **Check Status:** `systemctl status aria2`
 - **Logs:** `/var/log/aria2.log`
+
+## 10. Troubleshooting
+- **AriaNg 404/403:**
+    - Verify `/var/www/html/ariang/index.html` exists.
+    - Run the installer to normalize structure and fix permissions:
+        ```bash
+        cd /root/DietPi-NanoPi
+        ./scripts/install_ariang.sh
+        ```
+    - If you uploaded into a nested folder (e.g., `/var/www/html/ariang/ariang`), the installer will flatten it. If needed manually:
+        ```bash
+        mv /var/www/html/ariang/ariang/* /var/www/html/ariang/ 2>/dev/null || mv /var/www/html/ariang/AriaNg/* /var/www/html/ariang/ 2>/dev/null
+        rm -rf /var/www/html/ariang/ariang /var/www/html/ariang/AriaNg 2>/dev/null
+        chown -R www-data:www-data /var/www/html/ariang
+        find /var/www/html/ariang -type d -exec chmod 755 {} \;
+        find /var/www/html/ariang -type f -exec chmod 644 {} \;
+        systemctl restart lighttpd
+        ```
+- **USB ext4 directory checksum errors (Bad message during chown):**
+    - Unmount and repair the filesystem:
+        ```bash
+        systemctl stop aria2 || true
+        umount /mnt/usb_drive
+        e2fsck -fD /dev/sda1   # add -y for non-interactive
+        mount -a
+        ```
+    - Re-run provisioning:
+        ```bash
+        cd /root/DietPi-NanoPi
+        ./scripts/provision.sh
+        ```

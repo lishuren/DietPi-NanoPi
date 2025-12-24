@@ -79,12 +79,22 @@ echo "Deploying $SCRIPT_TO_RUN to $TARGET_IP..."
 PROJECT_ROOT="$(cd .. && pwd)"
 
 echo "Syncing project..."
-# Use rsync to copy files
-rsync -avz --exclude '.git' --exclude '.DS_Store' --exclude 'deploy.env' "$PROJECT_ROOT/" "$TARGET_USER@$TARGET_IP:$REMOTE_DIR/"
-
-if [ $? -ne 0 ]; then
-    echo "Error: File sync failed. Make sure you have SSH access to root@$TARGET_IP."
-    exit 1
+if command -v rsync >/dev/null 2>&1; then
+    # Use rsync to copy files
+    rsync -avz --exclude '.git' --exclude '.DS_Store' --exclude 'deploy.env' "$PROJECT_ROOT/" "$TARGET_USER@$TARGET_IP:$REMOTE_DIR/"
+    if [ $? -ne 0 ]; then
+        echo "Error: File sync failed via rsync. Make sure you have SSH access to root@$TARGET_IP."
+        exit 1
+    fi
+else
+    echo "rsync not found; falling back to scp (syncing scripts, config, downloads)."
+    # Ensure remote directory exists
+    ssh "$TARGET_USER@$TARGET_IP" "mkdir -p $REMOTE_DIR" || { echo "Error: Cannot create $REMOTE_DIR on remote"; exit 1; }
+    SCP_SRC=("$PROJECT_ROOT/scripts" "$PROJECT_ROOT/config")
+    if [ -d "$PROJECT_ROOT/downloads" ]; then
+        SCP_SRC+=("$PROJECT_ROOT/downloads")
+    fi
+    scp -r "${SCP_SRC[@]}" "$TARGET_USER@$TARGET_IP:$REMOTE_DIR" || { echo "Error: File sync failed via scp."; exit 1; }
 fi
 
 # 6. Run the script remotely

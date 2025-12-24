@@ -16,6 +16,7 @@ This project is a fully automated "Infrastructure as Code" setup for a NanoPi NE
 - **Stateless TF Card:** No persistent data is stored on the SD card.
 - **Persistent USB:** Downloads and Aria2 Session state (`aria2.session`) live on the USB drive.
 - **Idempotent Provisioning:** The `provision.sh` script can be run multiple times to set up or repair the system.
+- **Code-driven Provisioning:** Versioned scripts and configs in this repo define and reproduce the device state end-to-end.
 - **Remote Deployment:** All changes are pushed from the PC (Mac) to the device via `deploy.sh`.
 
 ## 4. Script Inventory (`scripts/`)
