@@ -36,8 +36,8 @@ fi
 
 # 4. Setup GeoIP data (from local only)
 echo "Setting up GeoIP data..."
-LOCAL_MMDB="$REPO_ROOT/downloads/Country.mmdb"
-LOCAL_GEOSITE="$REPO_ROOT/downloads/GeoSite.dat"
+LOCAL_MMDB="$REPO_ROOT/downloads/country.mmdb"
+LOCAL_GEOSITE="$REPO_ROOT/downloads/geosite.dat"
 
 if [ -f "$LOCAL_MMDB" ]; then
     echo "Using pre-downloaded Country.mmdb..."
