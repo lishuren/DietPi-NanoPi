@@ -12,26 +12,15 @@ CONFIG_DIR="/etc/mihomo"
 SERVICE_FILE="/etc/systemd/system/mihomo.service"
 LOCAL_BINARY="$REPO_ROOT/downloads/mihomo"
 
-# 1. Install Binary (from local or download)
+# 1. Install Binary (from local only)
 if [ -f "$LOCAL_BINARY" ]; then
     echo "Using pre-downloaded Mihomo binary from $LOCAL_BINARY..."
     cp "$LOCAL_BINARY" "$INSTALL_DIR/mihomo"
     chmod +x "$INSTALL_DIR/mihomo"
 else
-    echo "Local binary not found. Downloading Mihomo (Clash Meta)..."
-    DOWNLOAD_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.1/mihomo-linux-armv7-v1.18.1.gz"
-    
-    curl -L -o mihomo.gz "$DOWNLOAD_URL"
-    
-    if [ $? -ne 0 ]; then
-        echo "Download failed!"
-        exit 1
-    fi
-    
-    echo "Installing binary..."
-    gzip -d mihomo.gz
-    chmod +x mihomo
-    mv mihomo "$INSTALL_DIR/mihomo"
+    echo "Error: Local Mihomo binary not found at $LOCAL_BINARY"
+    echo "Please download Mihomo on your PC using scripts/download_mihomo.sh and sync to the device."
+    exit 1
 fi
 
 # 3. Create Config Directory
@@ -45,7 +34,7 @@ else
     touch "$CONFIG_DIR/config.yaml"
 fi
 
-# 4. Download or copy Country MMDB (GeoIP)
+# 4. Setup GeoIP data (from local only)
 echo "Setting up GeoIP data..."
 LOCAL_MMDB="$REPO_ROOT/downloads/Country.mmdb"
 LOCAL_GEOSITE="$REPO_ROOT/downloads/GeoSite.dat"
@@ -54,16 +43,16 @@ if [ -f "$LOCAL_MMDB" ]; then
     echo "Using pre-downloaded Country.mmdb..."
     cp "$LOCAL_MMDB" "$CONFIG_DIR/Country.mmdb"
 else
-    echo "Downloading Country.mmdb..."
-    curl -L -o "$CONFIG_DIR/Country.mmdb" "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb"
+    echo "Warning: Country.mmdb not found at $LOCAL_MMDB"
+    echo "Please download on your PC using scripts/download_mihomo.sh and sync to the device."
 fi
 
 if [ -f "$LOCAL_GEOSITE" ]; then
     echo "Using pre-downloaded GeoSite.dat..."
     cp "$LOCAL_GEOSITE" "$CONFIG_DIR/GeoSite.dat"
 else
-    echo "Downloading GeoSite.dat..."
-    curl -L -o "$CONFIG_DIR/GeoSite.dat" "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
+    echo "Warning: GeoSite.dat not found at $LOCAL_GEOSITE"
+    echo "Please download on your PC using scripts/download_mihomo.sh and sync to the device."
 fi
 
 # 5. Create Systemd Service

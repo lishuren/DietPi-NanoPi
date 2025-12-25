@@ -44,8 +44,9 @@ if mount | grep -q "^$DEV "; then
   umount "$DEV"
 fi
 
-echo "Formatting $DEV as ext4 with label '$LABEL'..."
-mkfs.ext4 -F -L "$LABEL" "$DEV"
+echo "Formatting $DEV as ext4 (compat mode) with label '$LABEL'..."
+# Use ext4 features compatible with older kernels (disable 64bit/metadata_csum)
+mkfs.ext4 -F -L "$LABEL" -O ^64bit,^metadata_csum "$DEV"
 
 echo "Format complete. You can now mount it or run provision:"
 echo "  sudo bash $(dirname "$0")/provision.sh"

@@ -6,6 +6,7 @@ WEB_ROOT="/var/www/html"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_PAGE="$REPO_ROOT/web/index.html"
+SRC_API_DIR="$REPO_ROOT/web/api"
 
 echo "Installing portal home page..."
 mkdir -p "$WEB_ROOT"
@@ -13,6 +14,11 @@ mkdir -p "$WEB_ROOT"
 if [ -f "$SRC_PAGE" ]; then
   echo "Using source page: $SRC_PAGE"
   cp "$SRC_PAGE" "$WEB_ROOT/index.html"
+  if [ -d "$SRC_API_DIR" ]; then
+    echo "Deploying API endpoints from: $SRC_API_DIR"
+    mkdir -p "$WEB_ROOT/api"
+    cp -a "$SRC_API_DIR"/*.php "$WEB_ROOT/api/" || true
+  fi
 else
   echo "Source page not found; installing minimal placeholder."
   cat > "$WEB_ROOT/index.html" <<'HTML'
@@ -118,4 +124,5 @@ HTML
 fi
 
 chown -R www-data:www-data "$WEB_ROOT/index.html" 2>/dev/null || true
+chown -R www-data:www-data "$WEB_ROOT/api" 2>/dev/null || true
 echo "Portal home page ready at http://<ip>/"

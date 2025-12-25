@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NanoPi Portal</title>
   <style>
+      .statusbar { display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:12px; margin: 18px 0 26px; }
+      .tile { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; }
+      .tile h3 { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+      .meter { height: 8px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; }
+      .meter > span { display:block; height:100%; background: linear-gradient(90deg, var(--accent), #60a5fa); }
+      .small { font-size: 0.9rem; color: var(--muted); }
     :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#22c55e; --accent3:#f59e0b; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol'; background: linear-gradient(120deg,#0b1224,#0f172a 40%,#0b1224); color: var(--text); }
@@ -44,6 +50,52 @@
       const hostEl = document.getElementById('deviceHost');
       if (hostEl) hostEl.textContent = host;
       document.getElementById('smbPath').textContent = smbPath();
+
+      // Poll endpoints
+      const fmtBytes = (b) => {
+        if (b == null) return '—';
+        const u = ['B','KB','MB','GB','TB'];
+        let i = 0; let v = b;
+        while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }
+        return v.toFixed(v>=100?0: v>=10?1:2) + ' ' + u[i];
+      };
+      const byps = (b)=> (b==null? '—' : ( (b/1024).toFixed(b>=1024*100?0:1) + ' KB/s'));
+
+      function renderSystem(s){
+        const load = s?.cpu?.load1 ?? 0;
+        const memT = s?.mem?.total ?? 0;
+        const memU = s?.mem?.used ?? 0;
+        const memPct = memT? Math.min(100, Math.round((memU/memT)*100)) : 0;
+        const temp = s?.temp;
+        document.getElementById('cpuLoad').style.width = Math.min(100, load*20) + '%';
+        document.getElementById('memBar').style.width = memPct + '%';
+        document.getElementById('tempVal').textContent = (temp!=null? (temp+' °C') : '—');
+      }
+      function renderMount(m){
+        const total=m?.totalBytes, free=m?.freeBytes, used=m?.usedBytes;
+        const pct = total? Math.min(100, Math.round((used/total)*100)) : 0;
+        document.getElementById('diskBar').style.width = pct + '%';
+        document.getElementById('diskText').textContent = `${fmtBytes(used)} / ${fmtBytes(total)}`;
+      }
+      function renderServices(sv){
+        const list = sv?.services || [];
+        const aria = list.find(x=>x.name==='aria2');
+        const mihomo = list.find(x=>x.name==='mihomo');
+        document.getElementById('ariaStat').textContent = aria?.active? 'running' : 'stopped';
+        document.getElementById('vpnStat').textContent = mihomo?.active? 'running' : 'stopped';
+      }
+      function renderAria2(a){
+        const g=a?.global;
+        document.getElementById('ariaSpeed').textContent = `${byps(g?.downloadSpeed)} down / ${byps(g?.uploadSpeed)} up`;
+        document.getElementById('ariaCounts').textContent = `Active ${g?.numActive??'—'}, Waiting ${g?.numWaiting??'—'}`;
+      }
+      async function poll(){
+        try{ const r=await fetch('/api/system.php'); renderSystem(await r.json()); }catch(e){}
+        try{ const r=await fetch('/api/mount.php'); renderMount(await r.json()); }catch(e){}
+        try{ const r=await fetch('/api/services.php'); renderServices(await r.json()); }catch(e){}
+        try{ const r=await fetch('/api/aria2.php'); renderAria2(await r.json()); }catch(e){}
+      }
+      poll(); setInterval(poll, 3000);
     });
   </script>
   <link rel="icon" href="data:,">
@@ -55,6 +107,27 @@
       <h1>DietPi NanoPi Portal</h1>
       <p>Jump quickly to services hosted on this box.</p>
       <p style="color: var(--muted);">Device Address: <span class="mono" id="deviceHost">loading...</span></p>
+      <div class="statusbar">
+        <div class="tile">
+          <h3>CPU Load</h3>
+          <div class="meter"><span id="cpuLoad" style="width:0%"></span></div>
+          <div class="small">1‑min average</div>
+        </div>
+        <div class="tile">
+          <h3>Memory</h3>
+          <div class="meter"><span id="memBar" style="width:0%"></span></div>
+          <div class="small">Used</div>
+        </div>
+        <div class="tile">
+          <h3>USB Disk</h3>
+          <div class="meter"><span id="diskBar" style="width:0%"></span></div>
+          <div class="small" id="diskText">—</div>
+        </div>
+        <div class="tile">
+          <h3>Temperature</h3>
+          <div class="small" id="tempVal">—</div>
+        </div>
+      </div>
     </header>
 
     <section class="grid">
@@ -62,12 +135,15 @@
         <h2>AriaNg</h2>
         <p>Web UI for Aria2 downloads.</p>
         <a class="btn" href="/ariang" rel="noopener">Open AriaNg</a>
+        <p class="small">Speed: <span id="ariaSpeed">—</span></p>
+        <p class="small">Jobs: <span id="ariaCounts">—</span></p>
       </div>
 
       <div class="card">
         <h2>VPN Control</h2>
         <p>Toggle VPN and update subscription.</p>
         <a class="btn secondary" href="/vpn.php" rel="noopener">Open VPN UI</a>
+        <p class="small">Status: <span id="vpnStat">—</span></p>
       </div>
 
       <div class="card">

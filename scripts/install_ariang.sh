@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Install AriaNg static UI under /var/www/html/ariang
 # Prefers local pre-downloaded assets; falls back to fetching release if needed.
@@ -38,13 +38,11 @@ done
 
 mkdir -p "$WEB_ROOT"
 
-# --- One-shot refactored flow: stage from ZIP/URL or install from local, then exit ---
-
 stage_from_zip() {
     local zip="$1"
     if [ ! -f "$zip" ]; then
         echo "ZIP not found: $zip"
-        exit 2
+        return 1
     fi
     apt-get update >/dev/null 2>&1 || true
     apt-get install -y unzip >/dev/null 2>&1 || true
@@ -57,7 +55,7 @@ stage_from_zip() {
         cp -a "$unpack/dist"/. "$LOCAL_DIR"/
     else
         local cand
-        cand=$(find "$unpack" -type f -name index.html | head -n 1 || true)
+        cand=$(find "$unpack" -type f -name index.html 2>/dev/null | head -n 1 || true)
         if [ -n "$cand" ]; then
             cp -a "$(dirname "$cand")"/. "$LOCAL_DIR"/
         else
@@ -65,6 +63,7 @@ stage_from_zip() {
         fi
     fi
     rm -rf "$unpack"
+    return 0
 }
 
 stage_from_url() {
@@ -75,10 +74,12 @@ stage_from_url() {
     echo "Downloading: $url"
     if ! curl -fL -H "User-Agent: Mozilla/5.0" -o "$tmp" "$url"; then
         echo "Failed to download: $url"
-        exit 3
+        return 1
     fi
     stage_from_zip "$tmp"
+    local ret=$?
     rm -f "$tmp"
+    return $ret
 }
 
 install_from_local() {
@@ -89,44 +90,89 @@ install_from_local() {
         src="$LOCAL_DIR/dist"
     else
         local cand
-        cand=$(find "$LOCAL_DIR" -type f -name index.html | head -n 1 || true)
+        cand=$(find "$LOCAL_DIR" -type f -name index.html 2>/dev/null | head -n 1 || true)
         if [ -n "$cand" ]; then
             src="$(dirname "$cand")"
         fi
     fi
+    
     if [ -z "$src" ]; then
+        echo "No valid index.html found in $LOCAL_DIR"
         return 1
     fi
+    
     echo "Installing AriaNg from: $src"
     rm -rf "$TARGET_DIR"
     mkdir -p "$TARGET_DIR"
     cp -a "$src"/. "$TARGET_DIR"/
     chown -R www-data:www-data "$TARGET_DIR" || true
-    find "$TARGET_DIR" -type d -exec chmod 755 {} \; || true
-    find "$TARGET_DIR" -type f -exec chmod 644 {} \; || true
+    find "$TARGET_DIR" -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find "$TARGET_DIR" -type f -exec chmod 644 {} \; 2>/dev/null || true
     systemctl restart lighttpd || true
-    [ -f "$TARGET_DIR/index.html" ] && echo "AriaNg ready at $TARGET_DIR" && return 0
+    
+    if [ -f "$TARGET_DIR/index.html" ]; then
+        echo "AriaNg installed successfully to $TARGET_DIR"
+        return 0
+    fi
     return 1
 }
 
-# Resolve one-shot path
+install_placeholder() {
+    echo "Installing placeholder page..."
+    rm -rf "$TARGET_DIR"
+    mkdir -p "$TARGET_DIR"
+    cat > "$TARGET_DIR/index.html" <<'HTML'
+<!doctype html>
+<html><head><meta charset="utf-8"><title>AriaNg not installed</title></head>
+<body>
+<h1>AriaNg not installed</h1>
+<p>Assets not found. Please stage the contents of the AriaNg <code>dist/</code> folder into /var/www/html/ariang or into downloads/ariang and re-run the installer.</p>
+</body></html>
+HTML
+    chown -R www-data:www-data "$TARGET_DIR" || true
+    systemctl restart lighttpd || true
+}
+
+# Main install flow
 if [ -n "$ZIP_PATH" ]; then
-    stage_from_zip "$ZIP_PATH"
-    install_from_local && exit 0 || echo "Install failed from ZIP-staged assets"; exit 1
+    if stage_from_zip "$ZIP_PATH" && install_from_local; then
+        exit 0
+    fi
+    echo "Failed to install from ZIP: $ZIP_PATH"
+    install_placeholder
+    exit 0
 fi
 
 if [ -n "$URL" ]; then
-    stage_from_url "$URL"
-    install_from_local && exit 0 || echo "Install failed from URL-staged assets"; exit 1
+    if stage_from_url "$URL" && install_from_local; then
+        exit 0
+    fi
+    echo "Failed to install from URL: $URL"
+    install_placeholder
+    exit 0
 fi
 
+# Try local staged assets first
 if [ -d "$LOCAL_DIR" ]; then
-    install_from_local && exit 0
+    if install_from_local; then
+        exit 0
+    fi
 fi
 
-# Default fallback: use a versioned release URL
-stage_from_url "https://github.com/mayswind/AriaNg/releases/download/1.3.12/AriaNg-1.3.12.zip"
-install_from_local && exit 0 || { echo "Final install failed"; exit 1; }
+# Try local ZIP file
+LOCAL_ZIP=$(find "$REPO_ROOT/downloads" -maxdepth 1 -type f -name "AriaNg*.zip" 2>/dev/null | head -n 1 || true)
+if [ -n "$LOCAL_ZIP" ]; then
+    echo "Found local ZIP: $LOCAL_ZIP"
+    if stage_from_zip "$LOCAL_ZIP" && install_from_local; then
+        exit 0
+    fi
+fi
+
+# No local assets found; install placeholder with instructions
+echo "No local AriaNg assets found in $LOCAL_DIR or $REPO_ROOT/downloads/"
+echo "Please download AriaNg on your PC and sync to the device."
+install_placeholder
+exit 0
 
 # Prefer locally staged assets: if present, install them even if target already has content
 if [ -d "$LOCAL_DIR" ]; then

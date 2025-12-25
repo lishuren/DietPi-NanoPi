@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Provision Script for NanoPi NEO Download Station
 # Run this script on the NanoPi as root.
@@ -14,9 +14,10 @@ CONFIG_DIR="/etc/aria2"
 USER="dietpi"
 GROUP="dietpi"
 ARIA_CONF_SRC="$REPO_ROOT/config/aria2.conf"
-UID=$(id -u "$USER" 2>/dev/null || echo 1000)
-GID=$(id -g "$GROUP" 2>/dev/null || echo 1000)
+USER_UID=$(id -u "$USER" 2>/dev/null || echo 1000)
+USER_GID=$(id -g "$GROUP" 2>/dev/null || echo 1000)
 HOSTNAME_SHORT=$(hostname -s 2>/dev/null || echo dietpi)
+FSTAB_TYPE=""
 
 # 1. Detect USB Drive
 echo "Detecting USB drive..."
@@ -70,13 +71,13 @@ else
             ;;
         exfat)
             # exFAT doesn't support Unix ownership; set via mount options
-            OPTIONS="uid=$UID,gid=$GID,umask=0002,nofail,x-systemd.device-timeout=5"
+            OPTIONS="uid=$USER_UID,gid=$USER_GID,umask=0002,nofail,x-systemd.device-timeout=5"
             PASS="0 0"
             ;;
         ntfs|fuseblk)
             # Use ntfs-3g driver in fstab for NTFS
             FSTAB_TYPE="ntfs-3g"
-            OPTIONS="uid=$UID,gid=$GID,umask=0002,nofail,x-systemd.device-timeout=5"
+            OPTIONS="uid=$USER_UID,gid=$USER_GID,umask=0002,nofail,x-systemd.device-timeout=5"
             PASS="0 0"
             ;;
         *)
@@ -91,18 +92,67 @@ mount -a
 if mountpoint -q "$MOUNT_POINT"; then
     echo "Drive mounted successfully."
 else
-    echo "Initial mount failed; attempting to install required filesystem tools..."
-    if [ "$FSTYPE" = "exfat" ]; then
-        apt-get update && apt-get install -y exfatprogs exfat-fuse || true
-    elif [ "$FSTAB_TYPE" = "ntfs-3g" ] || [ "$FSTYPE" = "ntfs" ] || [ "$FSTYPE" = "fuseblk" ]; then
-        apt-get update && apt-get install -y ntfs-3g || true
+    echo "Initial mount failed. Diagnosing and attempting recovery..."
+    # If ext4, try a non-interactive fsck repair to fix common issues
+    if [ "$FSTYPE" = "ext4" ]; then
+        echo "Running e2fsck on $USB_PART (this may take a while)..."
+        systemctl stop aria2 2>/dev/null || true
+        umount "$USB_PART" 2>/dev/null || true
+        e2fsck -p "$USB_PART" || e2fsck -fy "$USB_PART" || true
+    else
+        echo "Attempting to install required filesystem tools..."
+        if [ "$FSTYPE" = "exfat" ]; then
+            apt-get update && apt-get install -y exfatprogs exfat-fuse || true
+        elif [ "$FSTAB_TYPE" = "ntfs-3g" ] || [ "$FSTYPE" = "ntfs" ] || [ "$FSTYPE" = "fuseblk" ]; then
+            apt-get update && apt-get install -y ntfs-3g || true
+        fi
     fi
     mount -a
     if mountpoint -q "$MOUNT_POINT"; then
-        echo "Drive mounted successfully after installing filesystem tools."
+        echo "Drive mounted successfully after recovery steps."
     else
-        echo "Error: Failed to mount drive."
-        exit 1
+        # If ext4 still fails, try recreating the journal then fsck again
+        if [ "$FSTYPE" = "ext4" ]; then
+            echo "Attempting to recreate ext4 journal on $USB_PART ..."
+            umount "$USB_PART" 2>/dev/null || true
+            tune2fs -j "$USB_PART" 2>/dev/null || true
+            e2fsck -fy "$USB_PART" || true
+            mount -a
+            if mountpoint -q "$MOUNT_POINT"; then
+                echo "Drive mounted successfully after journal recreation."
+                exit 0
+            fi
+        fi
+        echo "Mount via fstab still failed. Attempting explicit mount by UUID..."
+        FALLBACK_TYPE="$FSTYPE"
+        FALLBACK_OPTIONS="defaults,nofail,x-systemd.device-timeout=5"
+        case "$FSTYPE" in
+            ext4)
+                FALLBACK_OPTIONS="defaults,noatime"
+                ;;
+            exfat)
+                FALLBACK_OPTIONS="uid=$USER_UID,gid=$USER_GID,umask=0002"
+                ;;
+            ntfs|fuseblk)
+                FALLBACK_TYPE="ntfs-3g"
+                FALLBACK_OPTIONS="uid=$USER_UID,gid=$USER_GID,umask=0002"
+                ;;
+        esac
+        mkdir -p "$MOUNT_POINT"
+        mount -t "$FALLBACK_TYPE" -o "$FALLBACK_OPTIONS" "UUID=$UUID" "$MOUNT_POINT" || true
+        if mountpoint -q "$MOUNT_POINT"; then
+            echo "Drive mounted successfully via explicit mount."
+        else
+            echo "Error: Failed to mount drive. Printing kernel logs for hints..."
+            dmesg | tail -n 100 | sed 's/^/dmesg: /'
+            if [ "$FSTYPE" = "ext4" ]; then
+                echo "Hint: If this is a new or corrupted disk, format it as ext4 in compatibility mode from your PC:"
+                echo "  ssh root@<IP> 'bash -lc \"cd /root/DietPi-NanoPi && echo YES | bash scripts/prepare_usb_ext4.sh $USB_PART usbdata\"'"
+                echo "Alternatively, try a temporary mount without loading the journal (use read-only to avoid risk):"
+                echo "  mount -o ro,noload -t ext4 $USB_PART $MOUNT_POINT"
+            fi
+            exit 1
+        fi
     fi
 fi
 

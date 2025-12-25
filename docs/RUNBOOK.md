@@ -52,10 +52,6 @@ Notes:
 - Samba:
     - Windows can open `\\<IP>\\downloads` or `\\<hostname>\\downloads`.
     - Files appear under `/mnt/usb_drive/downloads` on the device.
-- VPN:
-    - `./scripts/update_subscription.sh "<URL>"` succeeds.
-    - `./scripts/toggle_vpn.sh on` starts `mihomo`; Aria2 uses proxy; `off` stops it.
-- Resilience:
     - Reboot device; portal and services still work; USB drive remounts automatically.
     - Unplug/replug USB drive: watchdog remounts and restarts Aria2 if needed.
 
@@ -63,13 +59,22 @@ Follow these steps from zero to a working AriaNg UI and Windows share.
 
 1) Prepare on PC (Windows)
 
+**IMPORTANT**: All third-party downloads (AriaNg, Mihomo, GeoIP data) must be done on your PC first. The NanoPi will NOT download from the internet during provisioning.
+
 ```bash
 # Clone the repo
 git clone https://github.com/lishuren/DietPi-NanoPi.git
 cd DietPi-NanoPi
 
-# Optional: stage AriaNg assets from a local ZIP
-bash scripts/download_ariang.sh 'd:/dev/DietPi-NanoPi/downloads/AriaNg-1.3.12.zip'
+# Download required assets (AriaNg, Mihomo, GeoIP data)
+bash scripts/download_ariang.sh
+bash scripts/download_mihomo.sh
+
+# Alternatively, manually download and place in downloads/:
+# - AriaNg-1.3.12.zip (from GitHub releases)
+# - mihomo (binary for linux-armv7)
+# - Country.mmdb
+# - GeoSite.dat
 ```
 
 2) Flash DietPi image to microSD
@@ -82,6 +87,8 @@ bash scripts/download_ariang.sh 'd:/dev/DietPi-NanoPi/downloads/AriaNg-1.3.12.zi
 - Wait ~2–3 minutes for first boot; find the device IP via your router DHCP list.
 
 4) Upload repo to NanoPi (PC → Pi)
+
+This syncs all scripts, configs, AND the downloaded assets to the device.
 
 ```bash
 scp -r ./scripts ./config ./downloads root@<NANOPI_IP>:/root/DietPi-NanoPi
@@ -123,9 +130,6 @@ cd /root/DietPi-NanoPi
 ./scripts/setup_samba.sh --guest
 
 # Or user mode:
-./scripts/setup_samba.sh --user dietpi --password "yourpass"
-```
-
 Windows:
 
 6) Verify & access
@@ -135,14 +139,9 @@ Windows:
 
 - Open `\\<NANOPI_IP>\downloads` in Explorer (e.g., `\\192.168.0.139\downloads`).
 - Map a drive via “This PC” → “Map network drive…”.
-- If prompted for credentials, use the Samba user (e.g., `dietpi`).
-
-Linux:
 - `sudo apt-get install -y cifs-utils`
 - `sudo mkdir -p /mnt/nanopi_downloads`
 - `sudo mount -t cifs //<NANOPI_IP>/downloads /mnt/nanopi_downloads -o username=dietpi`
-
-Troubleshooting:
 - Verify services: `systemctl status smbd nmbd`
 - Validate config: `testparm -s`
 - Ensure share path exists: `/mnt/usb_drive/downloads` with `dietpi:dietpi` ownership.
@@ -196,12 +195,30 @@ sudo systemctl restart lighttpd
 
 ### Downloader Fallback (PC-side)
 
-If `scripts/download_ariang.sh` fails due to network restrictions, manually stage the `dist/` assets:
+If `scripts/download_ariang.sh` or `scripts/download_mihomo.sh` fail due to network restrictions, manually download the assets:
 
-1. Download the AriaNg tag source archive (e.g. `refs/tags/1.3.12.zip`) from GitHub.
-2. Extract it on your PC and locate the `dist/` folder.
-3. Copy the contents of `dist/` into `downloads/ariang/` in your repo.
-4. Re-run the deploy+install steps above.
+#### AriaNg Manual Download
+
+1. Visit: https://github.com/mayswind/AriaNg/releases
+2. Download `AriaNg-1.3.12.zip` (or latest version)
+3. Extract the `dist/` folder contents into `downloads/ariang/` in your repo
+4. Or place the ZIP file directly in `downloads/` folder
+
+#### Mihomo (Clash) Manual Download
+
+1. Visit: https://github.com/MetaCubeX/mihomo/releases
+2. Download `mihomo-linux-armv7-v1.18.1.gz`
+3. Extract and rename to `mihomo`, place in `downloads/mihomo`
+4. Make executable: `chmod +x downloads/mihomo` (Git Bash)
+
+5. Visit: https://github.com/MetaCubeX/meta-rules-dat/releases
+6. Download `country.mmdb` → save as `downloads/Country.mmdb`
+7. Download `geosite.dat` → save as `downloads/GeoSite.dat`
+
+After manual download, sync to NanoPi:
+```bash
+scp -r ./downloads ./scripts ./config root@<NANOPI_IP>:/root/DietPi-NanoPi
+```
 
 This ensures `/var/www/html/ariang/index.html` is present and served.
 
@@ -532,6 +549,98 @@ Note: If `rsync` is not available on your PC, `deploy.sh` automatically falls ba
 ### Example: Full Provisioning (Re-run everything)
 ```bash
 ./scripts/deploy.sh 192.168.1.100 provision.sh
+```
+
+## PC-Side Provisioning (No Pi-side shell)
+
+Run everything from your PC via SSH, including provisioning and verification. Replace `<NANOPI_IP>` with your device IP.
+
+### Sync and Provision
+
+```bash
+# Sync repo folders to the device
+scp -r ./scripts ./config ./downloads root@<NANOPI_IP>:/root/DietPi-NanoPi
+
+# Run provisioning remotely under bash
+ssh root@<NANOPI_IP> 'bash -lc "cd /root/DietPi-NanoPi && chmod +x scripts/*.sh && bash scripts/provision.sh"'
+```
+
+### Quick Status Checks
+
+```bash
+ssh root@<NANOPI_IP> 'systemctl status aria2 --no-pager'
+ssh root@<NANOPI_IP> 'findmnt /mnt/usb_drive'
+ssh root@<NANOPI_IP> 'journalctl -u aria2 -n 200 --no-pager'
+ssh root@<NANOPI_IP> 'systemctl status smbd nmbd --no-pager'
+```
+
+### (Optional) Format USB as ext4 remotely
+
+If mounting fails with messages like "wrong fs type, bad superblock" and the drive is new or you plan to use ext4, format the partition from your PC. This ERASES all data on that partition.
+
+```bash
+# Inspect disks
+ssh root@<NANOPI_IP> 'lsblk -f'
+
+# Format target partition (replace /dev/sda1 accordingly)
+ssh root@<NANOPI_IP> 'bash -lc "cd /root/DietPi-NanoPi && echo YES | bash scripts/prepare_usb_ext4.sh /dev/sda1 usbdata"'
+
+# Re-run provisioning
+ssh root@<NANOPI_IP> 'bash -lc "cd /root/DietPi-NanoPi && bash scripts/provision.sh"'
+```
+
+### (Optional) Format USB as exFAT remotely
+
+If you prefer cross‑platform plug‑and‑play (Windows/macOS/Linux), you can use exFAT. Ownership/permissions are controlled by mount options, not stored in the filesystem.
+
+**IMPORTANT**: You must sync the latest scripts to the NanoPi before formatting, otherwise `prepare_usb_exfat.sh` will not be found.
+
+```bash
+# 1) Sync repo folders to the device (required before formatting)
+scp -r ./scripts ./config ./downloads root@<NANOPI_IP>:/root/DietPi-NanoPi
+
+# 2) Inspect disks
+ssh root@<NANOPI_IP> 'lsblk -f'
+
+# 3) Format target partition as exFAT (DESTROYS data; replace /dev/sda1)
+ssh root@<NANOPI_IP> 'bash -lc "cd /root/DietPi-NanoPi && echo YES | bash scripts/prepare_usb_exfat.sh /dev/sda1 usbdrive"'
+
+# 4) Re-run provisioning; exFAT is auto-detected and fstab entry will use uid/gid/umask
+ssh root@<NANOPI_IP> 'bash -lc "cd /root/DietPi-NanoPi && bash scripts/provision.sh"'
+```
+
+Or format from Windows using the helper:
+
+```powershell
+powershell -File scripts/windows/format_usb_exfat.ps1
+```
+
+### exFAT vs ext4: risks and trade‑offs
+- Reliability: exFAT has no journal; unexpected power loss can cause metadata corruption more easily than ext4. Mitigation: watchdog remount, safe removal, periodic `fsck.exfat` (from exfatprogs).
+- Permissions: no real POSIX ownership/permissions; Linux uses mount options (`uid`,`gid`,`umask`). For a single‑user server, this is acceptable.
+- Features: no symlinks/hardlinks; some Unix workflows may not work if placed on the exFAT drive (keep configs/binaries on TF card).
+- Performance: good enough for downloads on NanoPi; NTFS via `ntfs-3g` is heavier, ext4 is fastest on Linux.
+- Portability: best cross‑platform choice; Windows and macOS read/write exFAT natively.
+
+### Diagnostics for mount failures (no reformat)
+
+If ext4 still fails to mount and `dmesg` shows messages like `EXT4-fs (sda1): Could not load journal inode`, try non-destructive repair and journal recreation:
+
+```bash
+# Inspect fstab entry
+ssh root@<NANOPI_IP> 'bash -lc "grep UUID= /etc/fstab; cat /etc/fstab"'
+
+# Kernel messages around ext4
+ssh root@<NANOPI_IP> 'dmesg | tail -n 200 | grep -i -E "sda|ext4|mount" -n || dmesg | tail -n 100'
+
+# Stop services, unmount, and repair
+ssh root@<NANOPI_IP> 'bash -lc "systemctl stop aria2 || true; umount /dev/sda1 || true; e2fsck -fy /dev/sda1"'
+
+# Attempt journal recreation if needed, then re-check
+ssh root@<NANOPI_IP> 'bash -lc "tune2fs -j /dev/sda1 || true; e2fsck -fy /dev/sda1; mount -a; findmnt /mnt/usb_drive"'
+
+# As last resort for diagnostics (read-only, ignores journal; not for normal use)
+ssh root@<NANOPI_IP> 'bash -lc "mount -o ro,noload -t ext4 /dev/sda1 /mnt/usb_drive && findmnt /mnt/usb_drive"'
 ```
 
 ## 9. Maintenance
