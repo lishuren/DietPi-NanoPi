@@ -1,4 +1,63 @@
+## Changing USB Disk
+
+## Customizing the Home Page
+
+## IP Changes and Access Stability
+
+- The portal builds links and the Samba path using the live browser `hostname` (what you used to access the page), so it adapts automatically if the IP changes.
+- To avoid broken bookmarks, prefer accessing via a hostname rather than an IP:
+    - Reserve a static IP for the device in your router (DHCP reservation by MAC).
+    - Or set a static IP in DietPi (`dietpi-config` → Network → Static IP) or by editing `/etc/dhcpcd.conf`.
+    - Optionally enable mDNS for `dietpi.local` by installing `avahi-daemon`.
+- UNC path: with Samba `netbios name` set to the device hostname, you can use `\\<hostname>\\downloads` in Windows even if the IP changes.
+
+- Edit the repo page: [web/index.html](web/index.html)
+- Redeploy to Lighttpd root:
+    ```bash
+    sudo bash scripts/install_home_page.sh
+    sudo systemctl restart lighttpd
+    sudo rm -f /var/www/html/index.lighttpd.html
+    ```
+- Open http://<pi-ip>/ to see changes.
+
+- Stop services: `aria2`, `smbd`, `nmbd`.
+- Unmount current mount: `/mnt/usb_drive`.
+- Prepare the new disk (choose one):
+    - Windows-friendly (exFAT): Use [scripts/windows/format_usb_exfat.ps1](scripts/windows/format_usb_exfat.ps1) on a PC.
+    - Linux-native (ext4): Use [scripts/prepare_usb_ext4.sh](scripts/prepare_usb_ext4.sh) on the NanoPi (formats an existing partition only).
+- Plug the disk into NanoPi and run provisioning: `sudo bash scripts/provision.sh`.
+- Verify mount and services.
+
+Notes:
+- [scripts/provision.sh](scripts/provision.sh) auto-detects the filesystem (ext4/exfat/ntfs) and writes the appropriate `/etc/fstab` entry.
+- For exFAT/NTFS, ownership and permissions are controlled via mount options (`uid`,`gid`,`umask`).
+- The watchdog [scripts/monitor_mount.sh](scripts/monitor_mount.sh) ensures the mount stays healthy and restarts `aria2` if needed.
+
 ## End-to-End Quick Start (Fresh Device)
+
+## Verification Checklist (Brand-New TF Card)
+
+- Network:
+    - Find the device IP in your router; SSH works: `ssh root@<IP>`.
+- Provisioning:
+    - Run `./scripts/provision.sh` without errors; it mounts `/mnt/usb_drive`.
+    - `/etc/fstab` contains a UUID entry pointing to `/mnt/usb_drive` with correct filesystem type.
+- Web UI:
+    - http://<IP>/ loads the portal. Header shows the device address.
+    - http://<IP>/ariang loads AriaNg.
+    - http://<IP>/vpn.php loads VPN UI.
+- Aria2:
+    - `systemctl status aria2` is active.
+    - AriaNg connects to RPC and can start a small test download.
+- Samba:
+    - Windows can open `\\<IP>\\downloads` or `\\<hostname>\\downloads`.
+    - Files appear under `/mnt/usb_drive/downloads` on the device.
+- VPN:
+    - `./scripts/update_subscription.sh "<URL>"` succeeds.
+    - `./scripts/toggle_vpn.sh on` starts `mihomo`; Aria2 uses proxy; `off` stops it.
+- Resilience:
+    - Reboot device; portal and services still work; USB drive remounts automatically.
+    - Unplug/replug USB drive: watchdog remounts and restarts Aria2 if needed.
 
 Follow these steps from zero to a working AriaNg UI and Windows share.
 

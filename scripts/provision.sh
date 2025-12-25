@@ -14,6 +14,9 @@ CONFIG_DIR="/etc/aria2"
 USER="dietpi"
 GROUP="dietpi"
 ARIA_CONF_SRC="$REPO_ROOT/config/aria2.conf"
+UID=$(id -u "$USER" 2>/dev/null || echo 1000)
+GID=$(id -g "$GROUP" 2>/dev/null || echo 1000)
+HOSTNAME_SHORT=$(hostname -s 2>/dev/null || echo dietpi)
 
 # 1. Detect USB Drive
 echo "Detecting USB drive..."
@@ -39,18 +42,48 @@ if [ -z "$UUID" ]; then
 fi
 echo "UUID: $UUID"
 
+# Detect filesystem type (used for fstab and mount options)
+FSTYPE=$(blkid -s TYPE -o value "$USB_PART" || echo "")
+if [ -z "$FSTYPE" ]; then
+    echo "Error: Could not determine filesystem type for $USB_PART"
+    echo "Hint: If the disk is new, create a partition and format it (ext4/exfat/ntfs)."
+    exit 1
+fi
+echo "Detected filesystem: $FSTYPE"
+
 # 3. Setup Mount Point
 mkdir -p "$MOUNT_POINT"
 chown -R $USER:$GROUP "$MOUNT_POINT"
 
-# 4. Update fstab for Persistent Mount
-if grep -q "$UUID" /etc/fstab; then
+# 4. Update fstab for Persistent Mount (filesystem-aware)
+if grep -q "UUID=$UUID" /etc/fstab; then
     echo "Entry for UUID $UUID already exists in fstab."
 else
-    echo "Adding entry to /etc/fstab..."
-    # nofail: Boot continues even if drive is missing
-    # x-systemd.device-timeout=5: Don't wait long for it
-    echo "UUID=$UUID $MOUNT_POINT ext4 defaults,noatime,nofail,x-systemd.device-timeout=5 0 2" >> /etc/fstab
+    echo "Adding entry to /etc/fstab (type=$FSTYPE)..."
+    FSTAB_TYPE="$FSTYPE"
+    OPTIONS="defaults,nofail,x-systemd.device-timeout=5"
+    PASS="0 0"
+    case "$FSTYPE" in
+        ext4)
+            OPTIONS="defaults,noatime,nofail,x-systemd.device-timeout=5"
+            PASS="0 2"
+            ;;
+        exfat)
+            # exFAT doesn't support Unix ownership; set via mount options
+            OPTIONS="uid=$UID,gid=$GID,umask=0002,nofail,x-systemd.device-timeout=5"
+            PASS="0 0"
+            ;;
+        ntfs|fuseblk)
+            # Use ntfs-3g driver in fstab for NTFS
+            FSTAB_TYPE="ntfs-3g"
+            OPTIONS="uid=$UID,gid=$GID,umask=0002,nofail,x-systemd.device-timeout=5"
+            PASS="0 0"
+            ;;
+        *)
+            echo "Warning: Unrecognized filesystem '$FSTYPE'; using generic options."
+            ;;
+    esac
+    echo "UUID=$UUID $MOUNT_POINT $FSTAB_TYPE $OPTIONS $PASS" >> /etc/fstab
 fi
 
 # 5. Mount Now
@@ -58,22 +91,41 @@ mount -a
 if mountpoint -q "$MOUNT_POINT"; then
     echo "Drive mounted successfully."
 else
-    echo "Error: Failed to mount drive."
-    exit 1
+    echo "Initial mount failed; attempting to install required filesystem tools..."
+    if [ "$FSTYPE" = "exfat" ]; then
+        apt-get update && apt-get install -y exfatprogs exfat-fuse || true
+    elif [ "$FSTAB_TYPE" = "ntfs-3g" ] || [ "$FSTYPE" = "ntfs" ] || [ "$FSTYPE" = "fuseblk" ]; then
+        apt-get update && apt-get install -y ntfs-3g || true
+    fi
+    mount -a
+    if mountpoint -q "$MOUNT_POINT"; then
+        echo "Drive mounted successfully after installing filesystem tools."
+    else
+        echo "Error: Failed to mount drive."
+        exit 1
+    fi
 fi
 
 # 5.1 Verify filesystem type and readability
-FSTYPE=$(findmnt -n -o FSTYPE "$MOUNT_POINT" || echo "")
-echo "Filesystem type: ${FSTYPE:-unknown}"
-if [ -z "$FSTYPE" ]; then
+FSTYPE_MOUNT=$(findmnt -n -o FSTYPE "$MOUNT_POINT" || echo "")
+echo "Mounted filesystem type: ${FSTYPE_MOUNT:-unknown}"
+if [ -z "$FSTYPE_MOUNT" ]; then
     echo "Error: Could not determine filesystem type for $MOUNT_POINT"
     exit 1
 fi
-if [ "$FSTYPE" != "ext4" ]; then
-    echo "Warning: Expected ext4, but mounted filesystem is '$FSTYPE'."
-    echo "- Non-Linux filesystems (exfat/ntfs/vfat) may not support Unix permissions."
-    echo "- Consider backing up data and reformatting the USB partition to ext4."
-fi
+case "$FSTYPE_MOUNT" in
+    ext4)
+        ;;
+    exfat)
+        echo "Note: exFAT detected. Ownership/permissions are managed via mount options (uid/gid/umask)."
+        ;;
+    ntfs|fuseblk)
+        echo "Note: NTFS detected. Using ntfs-3g; permissions controlled via uid/gid/umask options."
+        ;;
+    *)
+        echo "Warning: Mounted filesystem '$FSTYPE_MOUNT' may have limited Unix permissions support."
+        ;;
+esac
 
 # Quick sanity check: ensure the mount directory is readable
 if ! ls "$MOUNT_POINT" > /dev/null 2>&1; then
@@ -88,10 +140,10 @@ mkdir -p "$MOUNT_POINT/downloads"
 mkdir -p "$MOUNT_POINT/aria2"
 touch "$MOUNT_POINT/aria2/aria2.session"
 # Only attempt chown on filesystems that support Unix ownership
-if [ "$FSTYPE" = "ext4" ]; then
+if [ "$FSTYPE_MOUNT" = "ext4" ]; then
     chown -R $USER:$GROUP "$MOUNT_POINT"
 else
-    echo "Skipping chown on $MOUNT_POINT (fstype=$FSTYPE)."
+    echo "Skipping chown on $MOUNT_POINT (fstype=$FSTYPE_MOUNT)."
 fi
 
 # 7. Install Configuration
@@ -123,6 +175,14 @@ if [ -f "$SCRIPT_DIR/install_ariang.sh" ]; then
     "$SCRIPT_DIR/install_ariang.sh"
 else
     echo "Warning: install_ariang.sh not found at $SCRIPT_DIR"
+fi
+
+# 7.2 Install Portal Home Page
+if [ -f "$SCRIPT_DIR/install_home_page.sh" ]; then
+    chmod +x "$SCRIPT_DIR/install_home_page.sh"
+    "$SCRIPT_DIR/install_home_page.sh"
+else
+    echo "Warning: install_home_page.sh not found at $SCRIPT_DIR"
 fi
 
 # 8. Setup Systemd Service
@@ -193,10 +253,29 @@ if [ ! -f "$SMB_CONF" ]; then
 [global]
    workgroup = WORKGROUP
    server string = DietPi Samba Server
+   netbios name = HOSTNAME_PLACEHOLDER
    security = user
    map to guest = Bad User
    dns proxy = no
 EOF
+    # Replace placeholder with actual short hostname
+    sed -i "s/HOSTNAME_PLACEHOLDER/$HOSTNAME_SHORT/g" "$SMB_CONF"
+fi
+
+# Ensure netbios name is set on existing configs too
+if grep -q "^[[:space:]]*netbios name[[:space:]]*=" "$SMB_CONF"; then
+    sed -i "s/^[[:space:]]*netbios name[[:space:]]*=.*/   netbios name = $HOSTNAME_SHORT/" "$SMB_CONF"
+else
+    # Insert under [global] block; if not found, append at top
+    if grep -q "^[[:space:]]*\[global\]" "$SMB_CONF"; then
+        awk -v hn="$HOSTNAME_SHORT" '
+            BEGIN{ins=0}
+            /^\[global\]/{print; if(!ins){print "   netbios name = " hn; ins=1; next}}
+            {print}
+        ' "$SMB_CONF" > "$SMB_CONF.tmp" && mv "$SMB_CONF.tmp" "$SMB_CONF"
+    else
+        sed -i "1i netbios name = $HOSTNAME_SHORT" "$SMB_CONF"
+    fi
 fi
 
 # Add 'downloads' share definition if not present

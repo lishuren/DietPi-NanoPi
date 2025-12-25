@@ -6,9 +6,24 @@ Design philosophy: **Infrastructure as Code**. Provisioning is code-driven — v
 
 Repository layout
 
-Quick start: AriaNg one-shot install is documented in [docs/RUNBOOK.md](docs/RUNBOOK.md) under “One-Shot: Install AriaNg” — just run `scripts/setup_ariang.sh` on the NanoPi.
+Quick Start (Fresh TF Card):
+- Follow the end-to-end guide in [docs/RUNBOOK.md](docs/RUNBOOK.md#end-to-end-quick-start-fresh-device).
+- Then validate with the [Verification Checklist](docs/RUNBOOK.md#verification-checklist-brand-new-tf-card).
 
-For file sharing from Windows/Linux, see the “Samba Access” section in [docs/RUNBOOK.md](docs/RUNBOOK.md) and run `scripts/setup_samba.sh`.
+Fast Commands (on NanoPi):
+```bash
+cd /root/DietPi-NanoPi
+./scripts/provision.sh            # mounts USB, installs web stack, Aria2, portal
+./scripts/setup_ariang.sh         # installs AriaNg UI
+./scripts/setup_samba.sh --guest  # guest share (or use --user dietpi --password "yourpass")
+./scripts/install_vpn_web_ui.sh   # installs VPN UI
+```
+
+Portal & Services:
+- Portal: http://<ip>/
+- AriaNg: http://<ip>/ariang
+- VPN UI: http://<ip>/vpn.php
+- Samba: `\\<ip>\\downloads` (or `\\<hostname>\\downloads`)
 
 - `config/` — configuration files
 - `docs/` — project documentation
