@@ -52,7 +52,16 @@ cp pi.config.example pi.config
 ssh-copy-id -i dietpi.pem.pub root@192.168.1.100
 ```
 
-### 6. Deploy to Pi
+### 6. Verify SSH Connection
+```bash
+# Test SSH connection (should connect without password)
+ssh -i dietpi.pem root@192.168.1.100
+
+# If successful, you'll see the DietPi welcome message
+# Type 'exit' to disconnect
+```
+
+### 7. Deploy to Pi
 ```bash
 # Install assets to Pi
 ./setup.sh
@@ -64,7 +73,7 @@ ssh-copy-id -i dietpi.pem.pub root@192.168.1.100
 ./status.sh
 ```
 
-### 7. Access Services
+### 8. Access Services
 - **Portal**: http://192.168.1.100/
 - **AriaNg**: http://192.168.1.100/ariang
 - **VPN UI**: http://192.168.1.100/vpn.php
