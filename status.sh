@@ -31,7 +31,7 @@ ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" << EOF
     echo "=== System Status ==="
     uptime
     echo ""
-    df -h / /mnt/usb_drive 2>/dev/null || df -h /
+    df -h / /mnt 2>/dev/null || df -h /
     echo ""
     
     echo "=== Service Status ==="

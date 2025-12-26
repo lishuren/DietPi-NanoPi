@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-$mount = '/mnt/usb_drive';
+$mount = '/mnt';
 
 // Determine mounted state and fstype via /proc/mounts
 $mounted = false; $fstype = null;

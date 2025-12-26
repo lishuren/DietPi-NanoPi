@@ -140,6 +140,33 @@ See [assets/README.md](../assets/README.md) for detailed download links.
 ./status.sh
 ```
 
+### USB Drive Setup
+
+After first boot, the USB drive must be mounted to `/mnt`:
+
+```bash
+# SSH to Pi
+ssh -i dietpi.pem root@<pi-ip>
+
+# Find USB device
+lsblk
+
+# Mount USB drive (replace sda1 with your device)
+mount /dev/sda1 /mnt
+
+# Create required directories
+mkdir -p /mnt/downloads /mnt/aria2
+touch /mnt/aria2/aria2.session
+
+# Make mount persistent across reboots
+echo '/dev/sda1 /mnt exfat defaults 0 2' >> /etc/fstab
+
+# Verify mount
+df -h /mnt
+```
+
+**Note:** USB drive filesystem can be exfat, ext4, or NTFS. Adjust fstab accordingly.
+
 ### Development Workflow
 
 ```bash
@@ -328,7 +355,7 @@ chmod 600 dietpi.pem
 
 # Verify USB mount
 ssh -i dietpi.pem root@<pi-ip>
-df -h /mnt/usb_drive
+df -h /mnt
 ```
 
 ### Nginx Shows Default Page

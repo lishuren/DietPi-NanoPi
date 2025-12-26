@@ -68,8 +68,8 @@ systemctl restart php*-fpm
 # Upload config to /etc/aria2/aria2.conf
 
 # Create required directories
-mkdir -p /mnt/usb_drive/aria2
-touch /mnt/usb_drive/aria2/aria2.session
+mkdir -p /mnt/aria2
+touch /mnt/aria2/aria2.session
 mkdir -p /mnt/downloads
 
 # Enable and start service
@@ -157,7 +157,7 @@ systemctl restart smbd nmbd
 
 ### Issue: Aria2 fails to start with "File not found" error
 **Cause:** Session file doesn't exist  
-**Solution:** `deploy.sh` now creates `/mnt/usb_drive/aria2/aria2.session`
+**Solution:** `deploy.sh` now creates `/mnt/aria2/aria2.session` on USB drive
 
 ### Issue: AriaNg shows 403 Forbidden
 **Cause:** Missing permissions or unzip failed  
