@@ -122,6 +122,24 @@ if ($action === 'provider') {
     exit;
 }
 
+if ($action === 'check_ip') {
+    $proxy = "http://127.0.0.1:7890"; // Default Clash HTTP port
+    $ch = curl_init("http://ifconfig.me/ip");
+    curl_setopt($ch, CURLOPT_PROXY, $proxy);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $ip = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($code === 200 && $ip) {
+        echo json_encode(['ip' => trim($ip)]);
+    } else {
+        echo json_encode(['error' => 'Failed to fetch IP']);
+    }
+    exit;
+}
+
 if ($action === 'traffic') {
     // Connect to websocket endpoint, read one frame, and exit
     $fp = @fsockopen("127.0.0.1", 9090, $errno, $errstr, 1);

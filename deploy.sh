@@ -52,7 +52,9 @@ if [ -f "local_configs/aria2.conf" ]; then
     # Initialize Aria2 directories and session file
     echo "Initializing Aria2 directories..."
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_data/aria2 && touch /mnt/usb_data/aria2/aria2.session"
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_data/downloads"
+    
+    # Since we are running as root, we just need to ensure the directory is accessible
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "chmod -R 777 /mnt/usb_data/aria2 /mnt/usb_data/downloads 2>/dev/null || true"
 fi
 
 # Deploy Samba config
@@ -62,7 +64,7 @@ if [ -f "local_configs/smb.conf" ]; then
     
     # Ensure downloads directory exists with proper permissions
     echo "Initializing Samba share directory..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_data/downloads && chmod 777 /mnt/usb_data/downloads"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_data/downloads"
 fi
 
 # Deploy Nginx config

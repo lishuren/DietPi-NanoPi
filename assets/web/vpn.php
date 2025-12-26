@@ -162,6 +162,8 @@
         <div style="margin-bottom: 15px;">
             <select id="groupSelector" onchange="renderNodes()"></select>
             <button type="button" class="btn update" style="padding: 8px 15px; font-size: 14px;" onclick="testAllLatency()">⚡ Test Connectivity</button>
+            <button type="button" class="btn update" style="padding: 8px 15px; font-size: 14px; background-color:#6c757d;" onclick="checkIp()">🔍 Check IP</button>
+            <span id="ipResult" style="margin-left:10px; font-weight:bold;"></span>
         </div>
         <div id="nodeList" class="proxy-grid">Loading proxies...</div>
     </div>
@@ -231,6 +233,26 @@
                 }
             } catch (e) {
                 console.log('Failed to fetch sub info', e);
+            }
+        }
+
+        async function checkIp() {
+            const el = document.getElementById('ipResult');
+            el.textContent = 'Checking...';
+            el.style.color = '#666';
+            try {
+                const res = await fetch('api/clash.php?action=check_ip');
+                const data = await res.json();
+                if (data.ip) {
+                    el.textContent = 'IP: ' + data.ip;
+                    el.style.color = 'green';
+                } else {
+                    el.textContent = 'Error: ' + (data.error || 'Unknown');
+                    el.style.color = 'red';
+                }
+            } catch (e) {
+                el.textContent = 'Network Error';
+                el.style.color = 'red';
             }
         }
 
