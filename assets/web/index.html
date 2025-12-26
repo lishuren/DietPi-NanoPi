@@ -96,6 +96,33 @@
         try{ const r=await fetch('/api/aria2.php'); renderAria2(await r.json()); }catch(e){}
       }
       poll(); setInterval(poll, 3000);
+
+      // System actions
+      window.systemUpdate = async function() {
+        if (!confirm('Run dietpi-update now? This may take several minutes.')) return;
+        const status = document.getElementById('sysStatus');
+        status.textContent = 'Updating system...';
+        try {
+          const r = await fetch('/api/system.php?action=update', {method:'POST'});
+          const data = await r.json();
+          status.textContent = data.success? 'Update complete!' : ('Error: ' + (data.error || 'Unknown'));
+        } catch(e) {
+          status.textContent = 'Update failed: ' + e.message;
+        }
+        setTimeout(() => status.textContent = '', 5000);
+      };
+
+      window.systemReboot = async function() {
+        if (!confirm('Reboot the device now? Services will be unavailable for ~2 minutes.')) return;
+        const status = document.getElementById('sysStatus');
+        status.textContent = 'Rebooting...';
+        try {
+          await fetch('/api/system.php?action=reboot', {method:'POST'});
+          status.textContent = 'Reboot command sent. Reconnect in 2 minutes.';
+        } catch(e) {
+          status.textContent = 'Reboot initiated.';
+        }
+      };
     });
   </script>
   <link rel="icon" href="data:,">
@@ -155,6 +182,16 @@
           <span id="copyStatus" style="align-self:center;color:var(--muted)"></span>
         </div>
         <p style="margin-top:8px;color:var(--muted)">Tip: Press Win+R, paste the path, hit Enter.</p>
+      </div>
+
+      <div class="card">
+        <h2>System Control</h2>
+        <p>Update DietPi system and reboot device.</p>
+        <div class="row">
+          <button class="btn" onclick="systemUpdate()">Update System</button>
+          <button class="btn warn" onclick="systemReboot()">Reboot</button>
+        </div>
+        <p class="small" id="sysStatus" style="margin-top:8px;"></p>
       </div>
 
       <div class="card">

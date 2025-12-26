@@ -58,11 +58,21 @@ ssh-copy-id -i dietpi.pem.pub root@192.168.1.100
 # (This happens when reflashing the Pi or reusing an IP address)
 ssh-keygen -R 192.168.1.100
 
-# Test SSH connection (should connect without password)
+# First SSH connection to DietPi
 ssh -i dietpi.pem root@192.168.1.100
 
-# If successful, you'll see the DietPi welcome message
-# Type 'exit' to disconnect
+# On first login, DietPi will run its first-run setup wizard:
+# 1. Accept/update global password (default: "dietpi")
+# 2. Wait for software installation to complete (5-10 minutes)
+# 3. Setup completes automatically (services start)
+# 4. You'll see the DietPi banner and command prompt
+
+# Note: dietpi.txt has CONFIG_CHECK_DIETPI_UPDATES=2 to skip GitHub update checks
+# during first boot (avoiding connectivity issues). You can update manually later
+# using the Update System button on the web portal or run: dietpi-update
+
+# After first login succeeds, type 'exit' to disconnect
+# Subsequent connections will be immediate (no wizard)
 ```
 
 ### 7. Deploy to Pi

@@ -6,7 +6,7 @@
 #
 # This script:
 # 1. Uploads binaries (mihomo, country.mmdb, geosite.dat) to Pi
-# 2. Uploads web assets (AriaNg.zip, vpn.php) to Pi
+# 2. Uploads web assets (AriaNg.zip, vpn.php, index.html, API files) to Pi
 # 3. Extracts AriaNg to web directory
 ###############################################################################
 
@@ -43,11 +43,23 @@ fi
 
 # Upload web assets
 echo "Uploading web assets..."
+ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html"
+
+if [ -f "assets/web/index.html" ]; then
+    scp -i "$PEM_FILE" assets/web/index.html "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/"
+fi
+
 if [ -f "assets/web/vpn.php" ]; then
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html"
     scp -i "$PEM_FILE" assets/web/vpn.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/"
 else
     echo "Warning: vpn.php not found in assets/web/"
+fi
+
+# Upload API files
+if [ -d "assets/web/api" ]; then
+    echo "Uploading API files..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/api"
+    scp -i "$PEM_FILE" assets/web/api/*.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/api/"
 fi
 
 # Upload and extract AriaNg

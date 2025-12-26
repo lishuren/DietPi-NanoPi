@@ -205,6 +205,52 @@ Or edit `local_configs/clash_config.yaml` → `./deploy.sh`
 
 ## Troubleshooting
 
+### First-Run Installation Stuck or Hanging
+
+If the Pi is stuck at a "First run setup failed" dialog or installation isn't progressing:
+
+**Check if installation is still running:**
+```bash
+# Check for apt/dpkg processes
+ssh -i dietpi.pem root@<pi-ip> "ps aux | grep -E 'apt|dpkg' | grep -v grep"
+
+# If output shows apt-get running: WAIT 10-15 minutes, it's still installing
+# If no output: Installation completed or stuck
+```
+
+**Check installation log:**
+```bash
+ssh -i dietpi.pem root@<pi-ip> "tail -20 /var/tmp/dietpi/logs/dietpi-firstrun-setup.log"
+
+# Should show [OK] DietPi-Update | APT update or package installation messages
+```
+
+**If stuck on "DietPi-Update failed" dialog:**
+```bash
+# Kill the dialog and manually start software installation
+ssh -i dietpi.pem root@<pi-ip> "pkill -f whiptail"
+ssh -i dietpi.pem root@<pi-ip> "/boot/dietpi/dietpi-software install 105 132 85 96 89"
+
+# Then monitor:
+watch -n 5 'ssh -i dietpi.pem root@<pi-ip> "ps aux | grep -E apt"'
+```
+
+**Verify services after installation completes:**
+```bash
+# Check if services are running
+ssh -i dietpi.pem root@<pi-ip> "systemctl status aria2 nginx samba ssh"
+
+# If all show "active (running)", installation is complete
+```
+
+**Why this happens:**
+- DietPi tries to check GitHub during first boot but network may not be ready
+- The update check fails but APT (Debian repos) works fine
+- Software still installs even if update check fails
+- Solution: `dietpi.txt` now has `CONFIG_CHECK_DIETPI_UPDATES=2` to disable this check
+
+---
+
 ### Cannot Connect via SSH
 
 ```bash
