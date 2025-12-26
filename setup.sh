@@ -70,6 +70,7 @@ if [ -f "assets/web/AriaNg.zip" ]; then
         mkdir -p /var/www/html/ariang
         cd /var/www/html/ariang
         unzip -o /tmp/AriaNg.zip
+        chmod -R 755 /var/www/html/ariang
         rm /tmp/AriaNg.zip
         echo "AriaNg extracted to /var/www/html/ariang"
 EOF

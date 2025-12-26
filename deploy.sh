@@ -48,18 +48,32 @@ if [ -f "local_configs/aria2.conf" ]; then
     echo "Deploying aria2.conf..."
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /etc/aria2"
     scp -i "$PEM_FILE" local_configs/aria2.conf "${REMOTE_USER}@${REMOTE_HOST}:/etc/aria2/"
+    
+    # Initialize Aria2 directories and session file
+    echo "Initializing Aria2 directories..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_drive/aria2 && touch /mnt/usb_drive/aria2/aria2.session"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/downloads"
 fi
 
 # Deploy Samba config
 if [ -f "local_configs/smb.conf" ]; then
     echo "Deploying smb.conf..."
     scp -i "$PEM_FILE" local_configs/smb.conf "${REMOTE_USER}@${REMOTE_HOST}:/etc/samba/"
+    
+    # Ensure downloads directory exists with proper permissions
+    echo "Initializing Samba share directory..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/downloads && chmod 777 /mnt/downloads"
 fi
 
 # Deploy Nginx config
+if [ -f "local_configs/nginx-default-site" ]; then
+    echo "Deploying nginx site config..."
+    scp -i "$PEM_FILE" local_configs/nginx-default-site "${REMOTE_USER}@${REMOTE_HOST}:/etc/nginx/sites-available/default"
+fi
+
 if [ -f "local_configs/nginx.conf" ]; then
     echo "Deploying nginx.conf..."
-    scp -i "$PEM_FILE" local_configs/nginx.conf "${REMOTE_USER}@${REMOTE_HOST}:/etc/nginx/sites-available/default"
+    scp -i "$PEM_FILE" local_configs/nginx.conf "${REMOTE_USER}@${REMOTE_HOST}:/etc/nginx/nginx.conf"
 fi
 
 # Deploy Clash config
@@ -81,9 +95,20 @@ if [ "$RESTART_SERVICES" = true ]; then
     echo "Reloading systemd and restarting services..."
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" << 'EOF'
         systemctl daemon-reload
+        
+        # Enable and restart Aria2
+        systemctl enable aria2 2>/dev/null || true
         systemctl restart aria2 2>/dev/null || echo "Warning: aria2 not running"
+        
+        # Enable and restart Mihomo (if service exists)
+        systemctl enable mihomo 2>/dev/null || true
         systemctl restart mihomo 2>/dev/null || echo "Warning: mihomo not running"
+        
+        # Restart Nginx and PHP
         systemctl restart nginx 2>/dev/null || echo "Warning: nginx not running"
+        systemctl restart php*-fpm 2>/dev/null || echo "Warning: php-fpm not running"
+        
+        # Restart Samba
         systemctl restart smbd 2>/dev/null || echo "Warning: smbd not running"
         systemctl restart nmbd 2>/dev/null || echo "Warning: nmbd not running"
 EOF
