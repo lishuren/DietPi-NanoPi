@@ -7,6 +7,9 @@
 # Examples:
 #   ./status.sh          # Show all services
 #   ./status.sh aria2    # Show only aria2 logs
+#
+# This script can be run periodically (via cron) for monitoring:
+#   */5 * * * * cd /path/to/DietPi-NanoPi && ./status.sh > /tmp/dietpi-status.log 2>&1
 ###############################################################################
 
 set -e
