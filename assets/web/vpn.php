@@ -27,7 +27,7 @@
         if (isset($_POST['action'])) {
             $action = $_POST['action'];
             if ($action == 'on') {
-                exec("sudo /usr/local/bin/toggle_vpn.sh on 2>&1", $output, $return_var);
+                exec("/usr/bin/systemctl start mihomo 2>&1", $output, $return_var);
                 if ($return_var === 0) {
                     $message = "VPN Turned ON";
                     $msg_type = "success";
@@ -36,7 +36,7 @@
                     $msg_type = "error";
                 }
             } elseif ($action == 'off') {
-                exec("sudo /usr/local/bin/toggle_vpn.sh off 2>&1", $output, $return_var);
+                exec("/usr/bin/systemctl stop mihomo 2>&1", $output, $return_var);
                 if ($return_var === 0) {
                     $message = "VPN Turned OFF";
                     $msg_type = "success";
@@ -46,14 +46,34 @@
                 }
             }
         } elseif (isset($_POST['update_url'])) {
-            $url = escapeshellarg($_POST['update_url']);
+            $url = $_POST['update_url'];
             if (!empty($url)) {
-                exec("sudo /usr/local/bin/update_subscription.sh $url 2>&1", $output, $return_var);
-                if ($return_var === 0) {
-                    $message = "Subscription Updated Successfully!";
-                    $msg_type = "success";
+                // Download subscription and update config
+                $temp_file = '/tmp/clash_sub_' . time();
+                $config_file = '/etc/mihomo/config.yaml';
+                
+                // Download subscription
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                $content = curl_exec($ch);
+                $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                
+                if ($http_code == 200 && $content) {
+                    file_put_contents($temp_file, $content);
+                    rename($temp_file, $config_file);
+                    exec("/usr/bin/systemctl restart mihomo 2>&1", $output, $return_var);
+                    if ($return_var === 0) {
+                        $message = "Subscription Updated Successfully!";
+                        $msg_type = "success";
+                    } else {
+                        $message = "Update Failed: " . implode(" ", $output);
+                        $msg_type = "error";
+                    }
                 } else {
-                    $message = "Update Failed: " . implode(" ", $output);
+                    $message = "Update Failed: Could not download subscription";
                     $msg_type = "error";
                 }
             }
