@@ -51,7 +51,7 @@ if [ -f "local_configs/aria2.conf" ]; then
     
     # Initialize Aria2 directories and session file
     echo "Initializing Aria2 directories..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/usb_drive/aria2 && touch /mnt/usb_drive/aria2/aria2.session"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/aria2 && touch /mnt/aria2/aria2.session"
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /mnt/downloads"
 fi
 
