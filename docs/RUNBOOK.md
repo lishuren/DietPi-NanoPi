@@ -205,6 +205,65 @@ Or edit `local_configs/clash_config.yaml` → `./deploy.sh`
 
 ## Troubleshooting
 
+### GitHub Connectivity Blocked (China/GFW)
+
+**Symptom:** DietPi first-run setup fails with "Failed to connect to raw.githubusercontent.com"
+
+**Root Cause:** GitHub is blocked by the Great Firewall in China. DietPi's first-run setup always tries to check for updates from GitHub, regardless of CONFIG_CHECK_DIETPI_UPDATES setting (that only affects post-installation automated checks).
+
+**Solution - Bypass DietPi Installation System:**
+
+1. **Let first boot fail** (it will get stuck on update check dialog)
+
+2. **SSH into the Pi** when the dialog appears:
+   ```bash
+   ssh -i dietpi.pem root@<pi-ip>
+   ```
+
+3. **Kill stuck processes and force direct APT installation:**
+   ```bash
+   # Kill the stuck dialog and dietpi-software loop
+   pkill -9 whiptail
+   pkill -9 dietpi-software
+   pkill -9 dietpi-update
+   
+   # Set install stage to bypass first-run checks
+   echo 1 > /boot/dietpi/.install_stage
+   
+   # Install packages directly with APT (bypasses DietPi's GitHub checks)
+   apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+     openssh-server aria2 nginx-light samba php-fpm php-cli unzip > /tmp/install.log 2>&1 &
+   ```
+
+4. **Monitor installation progress:**
+   ```bash
+   # Check if apt is running (wait 10-15 minutes)
+   ps aux | grep apt | grep -v grep
+   
+   # Check log
+   tail -f /tmp/install.log
+   ```
+
+5. **Verify services after installation:**
+   ```bash
+   systemctl status nginx aria2 samba ssh
+   # Nginx should show "active (running)"
+   ```
+
+6. **Create Aria2 service manually** (DietPi's automated setup was bypassed):
+   ```bash
+   # Will be covered in deployment section
+   ```
+
+**Why CONFIG_CHECK_DIETPI_UPDATES=0 doesn't help:**
+- That setting only controls **automated daily checks** after installation
+- **First-run setup** is hardcoded to check for updates regardless
+- The only solution is to bypass dietpi-software and use direct APT installation
+
+**After VPN is configured:** You can update DietPi through Mihomo VPN using the web portal's "Update System" button or manually: `dietpi-update`
+
+---
+
 ### First-Run Installation Stuck or Hanging
 
 If the Pi is stuck at a "First run setup failed" dialog or installation isn't progressing:

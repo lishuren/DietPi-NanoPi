@@ -36,6 +36,6 @@ AUTO_SETUP_LOGGING_INDEX=0
 
 # ----- Update Checks -----
 # Disable automatic update checks during first boot (can update manually later)
-# 0=Check for updates, 1=Prompt, 2=Disabled
-CONFIG_CHECK_DIETPI_UPDATES=2
-CONFIG_CHECK_APT_UPDATES=2
+# 0=Disabled, 1=Check only, 2=Check and upgrade automatically
+CONFIG_CHECK_DIETPI_UPDATES=0
+CONFIG_CHECK_APT_UPDATES=0
