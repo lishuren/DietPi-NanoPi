@@ -1,0 +1,7 @@
+# SSH connection configuration for NanoPi
+# Copy this file to pi.config and update with your values
+# NEVER commit pi.config to git (it's in .gitignore)
+
+PEM_FILE="dietpi.pem"
+REMOTE_USER="root"
+REMOTE_HOST="192.168.1.100"

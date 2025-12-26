@@ -1,0 +1,28 @@
+# Clash / Mihomo Configuration Template
+# REPLACE THIS CONTENT with your actual subscription config!
+# You can usually export this from Clash Verge or your provider.
+
+port: 7890
+socks-port: 7891
+allow-lan: true
+mode: rule
+log-level: info
+external-controller: :9090
+
+proxies:
+  # - name: "Example"
+  #   type: ss
+  #   server: server
+  #   port: 443
+  #   cipher: chacha20-ietf-poly1305
+  #   password: "password"
+
+proxy-groups:
+  # - name: "Proxy"
+  #   type: select
+  #   proxies:
+  #     - "Example"
+
+rules:
+  # - GEOIP,CN,DIRECT
+  # - MATCH,Proxy
