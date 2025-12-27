@@ -1,3 +1,33 @@
+<?php
+// Handle subscription update POST
+$subMsg = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['update_url'])) {
+    $url = trim($_POST['update_url']);
+    // Download subscription config from URL
+    $configPath = '/etc/mihomo/config.yaml';
+    $output = null;
+    $result = false;
+    if (filter_var($url, FILTER_VALIDATE_URL)) {
+        // Use curl to fetch the config
+        $cmd = "curl -fsSL " . escapeshellarg($url) . " -o " . escapeshellarg($configPath);
+        exec($cmd, $output, $code);
+        if ($code === 0) {
+            // Reload mihomo service
+            exec('sudo systemctl restart mihomo', $output2, $code2);
+            if ($code2 === 0) {
+                $subMsg = '<div class="message success">Subscription updated and VPN reloaded.</div>';
+                $result = true;
+            } else {
+                $subMsg = '<div class="message error">Config updated, but failed to reload VPN service.</div>';
+            }
+        } else {
+            $subMsg = '<div class="message error">Failed to download subscription config.</div>';
+        }
+    } else {
+        $subMsg = '<div class="message error">Invalid URL.</div>';
+    }
+}
+?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -216,6 +246,7 @@
     </div>
 
     <div class="section" style="background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 24px 20px; max-width: 420px; margin: 40px auto 0; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+        <?php if (!empty($subMsg)) echo $subMsg; ?>
         <form method="post" style="display: flex; flex-direction: column; align-items: center; gap: 18px;">
             <input type="text" name="update_url" placeholder="Paste Subscription URL here..." required style="padding: 12px; width: 100%; max-width: 320px; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem;">
             <button type="submit" class="btn update" style="background: var(--accent,#38bdf8); color: #0b1224; font-weight: 600; border-radius: 8px; font-size: 1rem; padding: 12px 24px; width: 100%; max-width: 220px;">Update Subscription</button>
