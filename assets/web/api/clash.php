@@ -47,44 +47,34 @@ if ($action === 'status') {
     $direct_code = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
     curl_close($ch2);
 
-    // VPN-Switch group status
-    $vpn_switch = curl_request("$api_url/proxies/VPN-Switch");
-    $vpn_switch_now = $vpn_switch['data']['now'] ?? 'DIRECT';
-    $vpn_switch_all = $vpn_switch['data']['all'] ?? [];
+    // Group status
+    $res = curl_request("$api_url/proxies/VPN-Switch");
+    $vpn_switch_now = $res['data']['now'] ?? 'DIRECT';
 
-    // Determine if VPN is ON (VPN-Switch set to GLOBAL)
-    $vpn_on = $service_active && $proxy_ok && $proxy_ip && $direct_ip && ($proxy_ip !== $direct_ip) && ($vpn_switch_now !== 'DIRECT');
+    // Current proxy
+    $current_proxy = $vpn_switch_now === 'Proxy' ? curl_request("$api_url/proxies/Proxy")['data']['now'] ?? null : 'DIRECT';
 
-    // Current proxy (if VPN is ON, get the current GLOBAL proxy, else DIRECT)
-    $current_proxy = null;
-    if ($vpn_switch_now !== 'DIRECT') {
-        // Try to get the current proxy in the GLOBAL group
-        $global = curl_request("$api_url/proxies/GLOBAL");
-        $current_proxy = $global['data']['now'] ?? $vpn_switch_now;
-    } else {
-        $current_proxy = 'DIRECT';
-    }
-
-    // Provider info (find first provider with subscriptionInfo)
+    // Provider
     $provider_res = curl_request("$api_url/providers/proxies");
     $provider = null;
     if ($provider_res['code'] === 200) {
         $providers = $provider_res['data']['providers'] ?? [];
         foreach ($providers as $key => $p) {
-            if (isset($p['subscriptionInfo'])) {
+            if ($p['type'] === 'Proxy' && isset($p['subscriptionInfo'])) {
                 $provider = ['name' => $key, 'updated' => $p['updatedAt'] ?? '', 'info' => $p['subscriptionInfo'] ?? null];
                 break;
             }
         }
     }
 
+    // VPN on if service active, proxy ok, IPs differ, and group is Proxy
+    $vpn_on = $service_active && $proxy_ok && $proxy_ip && $direct_ip && ($proxy_ip !== $direct_ip) && ($vpn_switch_now === 'Proxy');
+
     echo json_encode([
         'vpn_on' => $vpn_on,
         'proxy_ip' => $proxy_ip,
         'direct_ip' => $direct_ip,
         'current_proxy' => $current_proxy,
-        'vpn_switch_now' => $vpn_switch_now,
-        'vpn_switch_all' => $vpn_switch_all,
         'provider' => $provider
     ]);
     exit;

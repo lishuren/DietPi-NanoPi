@@ -1,10 +1,40 @@
+# Mihomo Base Configuration
+# Loads proxies from subscription URL via proxy-providers
+# Use web UI to update subscription URL and refresh
+
 port: 7890
 socks-port: 7891
-allow-lan: false
+allow-lan: true
 mode: rule
 log-level: info
 external-controller: 127.0.0.1:9090
 secret: ""
 
-# No extra groups needed - use GLOBAL from subscription directly for toggle
-# The subscription overwrites this file, but we keep it minimal
+proxy-providers:
+  subscription:
+    type: http
+    url: "https://your-default-subscription-link.com/sub.yaml"  # Placeholder - updated via web UI
+    path: ./providers/subscription.yaml
+    interval: 3600  # Auto-update every hour
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 600
+
+proxy-groups:
+  - name: Proxy
+    type: select  # Allows manual selection; change to url-test for auto
+    use:
+      - subscription
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: VPN-Switch
+    type: select
+    proxies:
+      - Proxy
+      - DIRECT
+
+rules:
+  - GEOIP,CN,DIRECT
+  - MATCH,VPN-Switch
