@@ -1,5 +1,3 @@
-
-
 ###############################################################################
 # setup.sh - Install assets to NanoPi
 # Usage: ./setup.sh
@@ -96,6 +94,10 @@ if [ -d "assets/web/php-proxy-app" ]; then
     echo "Uploading php-proxy-app..."
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
     scp -i "$PEM_FILE" -r assets/web/php-proxy-app/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
+    # Ensure encode_url.php is present
+    if [ -f "assets/web/php-proxy-app/encode_url.php" ]; then
+        scp -i "$PEM_FILE" assets/web/php-proxy-app/encode_url.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
+    fi
 fi
 
 # 4. Install System Dependencies (Filesystem support)

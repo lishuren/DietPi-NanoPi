@@ -1,4 +1,3 @@
-
 ###############################################################################
 # deploy.sh - Deploy local_configs to Pi and restart services
 # Usage: ./deploy.sh [--no-restart]

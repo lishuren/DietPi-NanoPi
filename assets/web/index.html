@@ -144,6 +144,7 @@
     input:checked + .slider:before { transform: translateX(24px); }
     input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <script>
     const host = window.location.hostname;
     function smbPath() {
@@ -180,13 +181,62 @@
       });
     }
     
+    // --- PHP Proxy URL encoding logic in JS (Latin1 byte-accurate) ---
+    const APP_KEY = 'DietPI-PHP-Proxy';
+    function md5_bin(str) {
+      const wordArray = CryptoJS.MD5(str);
+      let bin = '';
+      for (let i = 0; i < wordArray.words.length; i++) {
+        let w = wordArray.words[i];
+        for (let b = 3; b >= 0; b--) {
+          bin += String.fromCharCode((w >> (b * 8)) & 0xFF);
+        }
+      }
+      return bin.slice(0, 16);
+    }
+    function latin1Bytes(str) {
+      // Encode as ISO-8859-1 (Latin1) bytes
+      const arr = [];
+      for (let i = 0; i < str.length; i++) {
+        arr.push(str.charCodeAt(i) & 0xFF);
+      }
+      return arr;
+    }
+    function str_rot_pass_bytes(str, key) {
+      const strBytes = latin1Bytes(str);
+      const keyBytes = latin1Bytes(key);
+      const out = new Uint8Array(strBytes.length);
+      for (let i = 0; i < strBytes.length; i++) {
+        out[i] = (strBytes[i] + keyBytes[i % keyBytes.length]) & 0xFF;
+      }
+      return out;
+    }
+    function base64_url_encode_bytes(bytes) {
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      let b64 = btoa(bin);
+      return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function phpProxyEncodeUrl(url) {
+      const key = md5_bin(APP_KEY + window.location.hostname);
+      const rot = str_rot_pass_bytes(url, key);
+      return base64_url_encode_bytes(rot);
+    }
     function handleProxyOpen(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
       const input = document.getElementById('proxyUrlInput');
       const url = input.value.trim();
       if (!url) return false;
-      // Open /proxy/?q=URL in a new tab
-      window.open('/proxy/?q=' + encodeURIComponent(url), '_blank');
+      const host = window.location.hostname;
+      fetch(`/proxy/encode_url.php?url=${encodeURIComponent(url)}&host=${encodeURIComponent(host)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.q) {
+            window.open(`/proxy/index.php?q=${data.q}`, '_blank');
+          } else {
+            alert('Encoding failed');
+          }
+        });
       return false;
     }
     
@@ -542,7 +592,7 @@
         <div style="border-radius:8px; padding:18px 16px 14px 16px; display:flex; align-items:center; justify-content:center; flex-direction:column; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08);">
           <form action="/proxy/" method="get" style="width:100%; max-width:480px; display:flex; flex-direction:column; align-items:stretch; gap:6px;" onsubmit="return handleProxyOpen(event)">
             <input type="text" id="proxyUrlInput" name="q" placeholder="http://" style="padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.97rem; height:28px; margin-bottom:0;" />
-            <button type="submit" class="btn open-url" style="margin-top:4px; padding:7px 0; border:none; border-radius:4px; font-size:1rem; cursor:pointer;">Open</button>
+            <button type="button" class="btn open-url" style="margin-top:4px; padding:7px 0; border:none; border-radius:4px; font-size:1rem; cursor:pointer;" onclick="handleProxyOpen(event)">Open URL</button>
           </form>
           <div style="margin-top:10px; color:#bbb; font-size:0.97rem; text-align:center;">
             Enter a URL above to browse anonymously via your Pi.
