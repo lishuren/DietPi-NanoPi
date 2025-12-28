@@ -154,7 +154,11 @@ if ($action === 'traffic') {
     $len = ord($byte1) & 127;
     if ($len === 126) $len = unpack('n', fread($fp, 2))[1];
     elseif ($len === 127) $len = unpack('J', fread($fp, 8))[1];
-    $payload = fread($fp, $len);
+    if ($len > 0) {
+        $payload = fread($fp, $len);
+    } else {
+        $payload = '';
+    }
     fclose($fp);
     $data = json_decode($payload, true) ?? ['up' => 0, 'down' => 0];
     echo json_encode($data);

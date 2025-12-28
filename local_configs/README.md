@@ -18,6 +18,14 @@ These files are **committed to git** as the "golden configuration" and can be ed
 
 ### Web Files
 - `index.html` - Custom homepage/portal
+- `nginx-default-site` - Nginx site config (includes /proxy/ for php-proxy-app)
+
+## 🧩 Web Apps
+
+### php-proxy-app
+- Place the php-proxy-app code in `assets/web/proxy/`.
+- It will be deployed to `/var/www/html/proxy/` and accessible at `http://<your-pi>/proxy/`.
+- **Important:** The `config.php` file must have a non-empty `$config['app_key']` (e.g., `'DietPI-PHP-Proxy'`). This is required for the proxy to work.
 
 ## 🔄 Workflow
 

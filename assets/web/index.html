@@ -20,8 +20,8 @@
     header p { color: var(--muted); margin-top: 8px; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 16px; }
     @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(4px); border-radius: 12px; padding: 20px; transition: transform 120ms ease, box-shadow 120ms ease; }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(4px); border-radius: 12px; padding: 20px; transition: box-shadow 120ms ease; }
+    .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
     .card h2 { margin: 0 0 8px; font-size: 1.1rem; }
     .card p { margin: 0 0 12px; color: var(--muted); font-size: 0.95rem; }
     .btn { display: inline-block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: #0b1224; font-weight: 600; background: var(--accent); }
@@ -77,6 +77,16 @@
       }).catch(() => {
         alert('Copy failed. Path: ' + path);
       });
+    }
+    
+    function handleProxyOpen(e) {
+      e.preventDefault();
+      const input = document.getElementById('proxyUrlInput');
+      const url = input.value.trim();
+      if (!url) return false;
+      // Open /proxy/?q=URL in a new tab
+      window.open('/proxy/?q=' + encodeURIComponent(url), '_blank');
+      return false;
     }
     
     async function toggleVpn(e) {
@@ -190,13 +200,6 @@
         const aria = list.find(x=>x.name==='aria2');
         const mihomo = list.find(x=>x.name==='mihomo');
         document.getElementById('ariaStat').textContent = aria?.active? 'running' : 'stopped';
-        
-        const vpnToggle = document.getElementById('vpnToggle');
-        const isRunning = mihomo?.active;
-        // Only update toggle if not currently interacting (simple check)
-        if(!vpnToggle.disabled) {
-          vpnToggle.checked = isRunning;
-        }
       }
       function renderAria2(a){
         const g=a?.global;
@@ -215,14 +218,15 @@
         try{ const r=await fetch('/api/services.php'); renderServices(await r.json()); }catch(e){}
         try{ const r=await fetch('/api/aria2.php'); renderAria2(await r.json()); }catch(e){}
 
-        // Fetch VPN status and update vpnStat
-
+        // Fetch VPN status and update vpnStat and toggle
         try {
           const res = await fetch('/api/clash.php?action=status');
           const data = await res.json();
           const vpnStat = document.getElementById('vpnStat');
           const vpnMsg = document.getElementById('vpnMsg');
           const vpnIP = document.getElementById('vpnIP');
+          const vpnToggle = document.getElementById('vpnToggle');
+          if (vpnToggle) vpnToggle.checked = !!data.vpn_on;
           if (vpnStat) {
             if (data.vpn_on) {
               vpnStat.textContent = data.current_proxy || 'Proxy';
@@ -340,6 +344,19 @@
        </div>
 
       <div class="card">
+        <h2>PHP-Proxy</h2>
+        <div style="border-radius:8px; padding:18px 16px 14px 16px; display:flex; align-items:center; justify-content:center; flex-direction:column; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.08);">
+          <form action="/proxy/" method="get" style="width:100%; max-width:480px; display:flex; flex-direction:column; align-items:stretch; gap:6px;" onsubmit="return handleProxyOpen(event)">
+            <input type="text" id="proxyUrlInput" name="q" placeholder="http://" style="padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.97rem; height:28px; margin-bottom:0;" />
+            <button type="submit" style="margin-top:4px; padding:7px 0; background:var(--accent3); color:#fff; font-weight:600; border:none; border-radius:4px; font-size:1rem; cursor:pointer;">Open</button>
+          </form>
+          <div style="margin-top:10px; color:#bbb; font-size:0.97rem; text-align:center;">
+            Enter a URL above to browse anonymously via your Pi.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Samba Share</h2>
         <p>Windows network share path for downloads.</p>
         <div class="mono" id="smbPath">calculating...</div>
@@ -351,13 +368,14 @@
         <p style="margin-top:8px;color:var(--muted)">Tip: Press Win+R, paste the path, hit Enter.</p>
       </div>
 
-      <div class="card">
+      <div class="card" style="grid-column: 1 / -1;">
         <h2>✨ Features</h2>
-        <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem; color:var(--muted);">
-          <li style="margin-bottom:8px;">⬇️ <strong style="color:var(--text)">Aria2 Downloader</strong> - High-performance download manager with web UI</li>
-          <li style="margin-bottom:8px;">🔒 <strong style="color:var(--text)">VPN/Proxy Support</strong> - Mihomo (Clash Meta) for secure routing</li>
-          <li style="margin-bottom:8px;">📂 <strong style="color:var(--text)">Samba File Sharing</strong> - Access downloads from any device on your network</li>
-          <li>🚀 <strong style="color:var(--text)">Infrastructure as Code</strong> - Complete PC-to-Pi deployment workflow</li>
+        <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem; color:var(--muted); display:flex; flex-wrap:wrap; justify-content:space-between; gap:18px 32px;">
+          <li style="flex:1 1 220px; min-width:180px; margin-bottom:8px;">⬇️ <strong style="color:var(--text)">Aria2 Downloader</strong> - High-performance download manager with web UI</li>
+          <li style="flex:1 1 220px; min-width:180px; margin-bottom:8px;">🔒 <strong style="color:var(--text)">VPN/Proxy Support</strong> - Mihomo (Clash Meta) for secure routing</li>
+          <li style="flex:1 1 220px; min-width:180px; margin-bottom:8px;">🌐 <strong style="color:var(--text)">PHP-Proxy</strong> - Simple web proxy for privacy and bypassing restrictions</li>
+          <li style="flex:1 1 220px; min-width:180px; margin-bottom:8px;">📂 <strong style="color:var(--text)">Samba File Sharing</strong> - Access downloads from any device on your network</li>
+          <li style="flex:1 1 220px; min-width:180px;">🚀 <strong style="color:var(--text)">Infrastructure as Code</strong> - Complete PC-to-Pi deployment workflow</li>
         </ul>
       </div>
     </section>
@@ -375,4 +393,3 @@ Notes:
 - VPN UI lives at /var/www/html/vpn.php from install_vpn_web_ui.sh
 - Samba share path defaults to \\HOST\downloads (HOST resolves via location.hostname)
 -->
-</html>

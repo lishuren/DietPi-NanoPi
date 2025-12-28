@@ -61,10 +61,25 @@ server {
 	location /metacubexd/ {
 		alias /var/www/html/metacubexd/;
 		index index.html;
-		try_files $uri $uri/ =404;
+		try_files $uri $uri/ /metacubexd/index.html;
 		# Disable PHP handling in this location
 		location ~ \.php$ {
 			return 403;
+		}
+	}
+
+	# Alias for php-proxy-app
+	location /proxy/ {
+		alias /var/www/html/proxy/;
+		index index.php index.html;
+		# Enable PHP for this location
+		location ~ \.php$ {
+			include fastcgi_params;
+			fastcgi_param SCRIPT_FILENAME $request_filename;
+			fastcgi_param PATH_INFO $fastcgi_path_info;
+			fastcgi_index index.php;
+			fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+			try_files $uri =404;
 		}
 	}
 

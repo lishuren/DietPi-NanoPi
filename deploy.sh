@@ -121,6 +121,20 @@ if [ -d "assets/web/api" ]; then
     scp -i "$PEM_FILE" assets/web/api/*.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/api/"
 fi
 
+# Deploy php-proxy-app
+if [ -d "assets/web/proxy" ]; then
+    echo "Deploying php-proxy-app..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
+    scp -i "$PEM_FILE" -r assets/web/proxy/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
+fi
+
+# Deploy php-proxy-app (updated folder name)
+if [ -d "assets/web/php-proxy-app" ]; then
+    echo "Deploying php-proxy-app..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
+    scp -i "$PEM_FILE" -r assets/web/php-proxy-app/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
+fi
+
 # Configure USB Auto-Mount (if /dev/sda1 exists and not configured)
 echo "Checking USB storage configuration..."
 ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" << 'EOF'
