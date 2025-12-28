@@ -7,7 +7,9 @@ function run_cmd($cmd) {
     return ["code" => $code, "output" => implode("\n", $out)];
 }
 
-$action = $_POST['action'] ?? '';
+$input = file_get_contents('php://input');
+$data = json_decode($input, true);
+$action = $data['action'] ?? $_POST['action'] ?? '';
 if ($action === 'clear') {
     $out = run_cmd('sudo find /var/log -type f -exec truncate -s 0 {} +');
     echo json_encode(["success" => $out['code'] === 0, "output" => $out['output']]);

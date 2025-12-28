@@ -29,9 +29,18 @@ if [ ! -f "$PEM_FILE" ]; then
     exit 1
 fi
 
+
 # Ensure /var/log/nginx exists and is writable before restarting nginx
 echo "Ensuring /var/log/nginx exists on the Pi..."
 ssh -i "$PEM_FILE" ${REMOTE_USER}@${REMOTE_HOST} 'sudo mkdir -p /var/log/nginx && sudo touch /var/log/nginx/error.log && sudo chown -R www-data:www-data /var/log/nginx'
+
+# Ensure /var/log/samba exists and is writable before restarting Samba
+echo "Ensuring /var/log/samba exists on the Pi..."
+ssh -i "$PEM_FILE" ${REMOTE_USER}@${REMOTE_HOST} 'sudo mkdir -p /var/log/samba && sudo chown -R root:adm /var/log/samba && sudo chmod 755 /var/log/samba'
+
+# Enable persistent systemd journal logging
+echo "Ensuring persistent system logs (/var/log/journal) on the Pi..."
+ssh -i "$PEM_FILE" ${REMOTE_USER}@${REMOTE_HOST} 'sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald'
 #!/bin/bash
 
 
@@ -118,11 +127,18 @@ if [ -f "local_configs/nginx.conf" ]; then
     ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "systemctl reload nginx 2>/dev/null || systemctl restart nginx"
 fi
 
+
 # Deploy Clash config
 if [ -f "local_configs/config.yaml" ]; then
     echo "Deploying config.yaml..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /etc/mihomo"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /etc/mihomo/providers"
     scp -i "$PEM_FILE" local_configs/config.yaml "${REMOTE_USER}@${REMOTE_HOST}:/etc/mihomo/config.yaml"
+fi
+
+# Deploy subscription.yaml if present
+if [ -f "local_configs/subscription.yaml" ]; then
+    echo "Deploying subscription.yaml..."
+    scp -i "$PEM_FILE" local_configs/subscription.yaml "${REMOTE_USER}@${REMOTE_HOST}:/etc/mihomo/providers/subscription.yaml"
 fi
 
 
@@ -214,6 +230,10 @@ www-data ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop rsyslog
 www-data ALL=(ALL) NOPASSWD: /usr/bin/systemctl start rsyslog
 www-data ALL=(ALL) NOPASSWD: /bin/systemctl stop rsyslog
 www-data ALL=(ALL) NOPASSWD: /bin/systemctl start rsyslog
+www-data ALL=(ALL) NOPASSWD: /usr/bin/find
+www-data ALL=(ALL) NOPASSWD: /usr/bin/truncate
+www-data ALL=(ALL) NOPASSWD: /usr/bin/apt
+www-data ALL=(ALL) NOPASSWD: /usr/bin/apt-get
 SUDO
     chmod 0440 /etc/sudoers.d/dietpi-www
 EOF

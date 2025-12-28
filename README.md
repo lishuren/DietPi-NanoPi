@@ -95,6 +95,29 @@ ssh -i dietpi.pem root@192.168.1.100
 - **VPN UI**: http://192.168.1.100/vpn.php
 - **Samba**: `\\192.168.1.100\downloads`
 
+### 9. Update VPN Subscription (MetaCubeX/Mihomo)
+
+To fetch the latest Clash/Mihomo subscription config for MetaCubeX:
+
+```bash
+# Download your provider's config (replace URL with your actual subscription link)
+./SubscriptionVPN.sh "https://your-provider-subscription-url.com"
+# This saves to ./local_configs/subscription.yaml by default
+```
+
+- The script sets the correct User-Agent for full config downloads.
+- You can also download manually:
+
+```bash
+curl -sSL -H "User-Agent: clash" "https://your-provider-subscription-url.com" -o ./local_configs/subscription.yaml
+```
+
+**Deployment:**
+- `deploy.sh` will automatically deploy `local_configs/subscription.yaml` to `/etc/mihomo/providers/subscription.yaml` on your Pi.
+- You can edit or update the file anytime and re-run `deploy.sh`.
+
+> ⚠️ Some providers require the `User-Agent: clash` header to return a full config, not just a node list.
+
 ## 📁 Project Structure
 
 ```

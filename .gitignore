@@ -43,3 +43,4 @@ secrets/
 
 # Old/deprecated
 config/deploy.env
+local_configs/subscription.yaml
