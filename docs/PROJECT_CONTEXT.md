@@ -7,7 +7,6 @@ This project is a fully automated "Infrastructure as Code" setup for a NanoPi NE
 - **OS:** DietPi (Debian Bookworm based)
 - **Downloader:** Aria2 (systemd service)
 - **Web Server:** Nginx
-- **Frontend:** AriaNg (Web UI for Aria2)
 - **Storage:** External USB Drive (auto-mounted via UUID)
 - **File Sharing:** Samba (SMB) share for network access
 - **VPN/Proxy:** Mihomo (Clash Meta) for routing traffic securely
@@ -41,7 +40,7 @@ This project is a fully automated "Infrastructure as Code" setup for a NanoPi NE
 
 ### Assets Folder
 - **`assets/binaries/`**: mihomo, country.mmdb, geosite.dat
-- **`assets/web/`**: AriaNg.zip, vpn.php, index.html
+  - **`assets/web/`**: vpn.php, index.html
 - **`assets/templates/`**: config.yaml (Clash template)
 
 ## 5. Workflows
@@ -52,7 +51,7 @@ This project is a fully automated "Infrastructure as Code" setup for a NanoPi NE
 3. Generate SSH keys: `ssh-keygen -f dietpi.pem`
 4. Copy public key to Pi: `ssh-copy-id -i dietpi.pem.pub root@<ip>`
 5. Create `pi.config` from `pi.config.example`
-6. Download assets (mihomo, AriaNg, etc.) to `assets/`
+6. Download assets (mihomo, etc.) to `assets/`
 7. Run `./setup.sh` to install assets
 8. Run `./deploy.sh` to deploy configurations
 

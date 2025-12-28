@@ -21,7 +21,7 @@ DietPi-NanoPi/
 │
 ├── assets/                # ✨ NEW FOLDER
 │   ├── binaries/          # mihomo, country.mmdb (already moved)
-│   ├── web/               # AriaNg.zip (to download), vpn.php, index.html
+│   ├── web/               # vpn.php, index.html
 │   ├── templates/         # config.yaml
 │   └── README.md          # Download instructions
 │
@@ -66,7 +66,6 @@ All operations now run from PC:
 - ✅ `assets/binaries/` - mihomo, country.mmdb (already present)
 - ✅ `assets/web/` - vpn.php, index.html (ready)
 - ✅ `assets/templates/` - config.yaml (ready)
-- ℹ️ `assets/web/AriaNg.zip` - **User needs to download**
 
 #### 5. Configuration Management
 - ✅ `local_configs/` - Version-controlled configs
@@ -94,12 +93,6 @@ All operations now run from PC:
 
 ### 1. Download Missing Assets
 
-**AriaNg Web UI** (Required):
-```bash
-# Download from: https://github.com/mayswind/AriaNg/releases
-# Get: AriaNg-*-AllInOne.zip
-# Rename to: assets/web/AriaNg.zip
-```
 
 **GeoSite Database** (Optional):
 ```bash
@@ -151,7 +144,6 @@ ssh-copy-id -i dietpi.pem.pub root@192.168.1.100
 ### 5. Access Services
 
 - **Portal**: http://192.168.1.100/
-- **AriaNg**: http://192.168.1.100/ariang
 - **VPN UI**: http://192.168.1.100/vpn.php
 - **Samba**: `\\192.168.1.100\downloads`
 

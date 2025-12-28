@@ -24,11 +24,6 @@ Download these files manually:
 
 ## 🌐 web/
 
-### AriaNg Web UI
-- **File**: `AriaNg.zip`
-- **Download**: https://github.com/mayswind/AriaNg/releases
-- **Description**: Web-based Aria2 control panel
-- **Note**: Download the AllInOne.zip and rename to `AriaNg.zip`
 
 ### VPN Control Panel
 - **File**: `vpn.php`

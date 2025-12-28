@@ -41,7 +41,6 @@
 - All services running: aria2, nginx, php-fpm, smbd, nmbd
 - Portal accessible at http://192.168.0.139/
 - Samba share \\192.168.0.139\downloads as 'downloads' user
-- AriaNg at http://192.168.0.139/ariang/
 
 ## ✓ DEPLOYMENT PROCESS
 1. setup.sh - Uploads all assets and API files
