@@ -97,7 +97,9 @@ Install assets and deploy configurations:
 ### 8. Access Services
 - **Portal**: http://192.168.1.100/
 - **VPN UI**: http://192.168.1.100/vpn.php
-- **Samba**: `\\192.168.1.100\downloads`
+- **Samba**: `\\192.168.1.100\downloads` 
+Samba User name: dietpi
+Samba Password: dietpi
 
 ### 9. Update VPN Subscription (MetaCubeX/Mihomo)
 To fetch the latest Clash/Mihomo subscription config for MetaCubeX:
