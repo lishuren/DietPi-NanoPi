@@ -221,28 +221,59 @@
         try{ const r=await fetch('/api/aria2.php'); renderAria2(await r.json()); }catch(e){}
 
         // Fetch VPN status and update vpnStat
+
         try {
           const res = await fetch('/api/clash.php?action=status');
           const data = await res.json();
           const vpnStat = document.getElementById('vpnStat');
+          const vpnMsg = document.getElementById('vpnMsg');
+          const vpnIP = document.getElementById('vpnIP');
           if (vpnStat) {
             if (data.vpn_on) {
-              vpnStat.textContent = data.current_proxy === 'Proxy' ? 'Proxy' : 'Direct';
-              vpnStat.style.color = data.current_proxy === 'Proxy' ? 'var(--accent2)' : 'var(--muted)';
+              vpnStat.textContent = data.current_proxy || 'Proxy';
+              vpnStat.style.color = 'var(--accent2)';
             } else {
-              vpnStat.textContent = 'Stopped';
+              vpnStat.textContent = 'Direct';
               vpnStat.style.color = 'var(--muted)';
             }
           }
+          if (vpnIP) {
+            vpnIP.textContent = data.proxy_ip || '—';
+          }
+          if (vpnMsg) {
+            let msg = '';
+            msg += `<b>Proxy IP:</b> ${data.proxy_ip || '—'}<br/>`;
+            msg += `<b>Direct IP:</b> ${data.direct_ip || '—'}<br/>`;
+            msg += `<b>Current Proxy:</b> ${data.current_proxy || '—'}<br/>`;
+            if (data.provider) {
+              msg += `<b>Provider:</b> ${data.provider.name || '—'}<br/>`;
+              msg += `<b>Updated:</b> ${data.provider.updated || '—'}<br/>`;
+              if (data.provider.info) {
+                const info = data.provider.info;
+                const fmt = b => b == null ? '—' : (b/1024/1024/1024).toFixed(2) + ' GB';
+                msg += `<b>Usage:</b> ${fmt(info.Upload + info.Download)} / ${fmt(info.Total)}<br/>`;
+                if (info.Expire) {
+                  const d = new Date(info.Expire * 1000);
+                  msg += `<b>Expire:</b> ${d.toLocaleDateString()}<br/>`;
+                }
+              }
+            }
+            vpnMsg.innerHTML = msg;
+          }
         } catch(e) {}
 
-        // Only poll VPN traffic if VPN is running (optimization)
-        const vpnToggle = document.getElementById('vpnToggle');
-        if(vpnToggle && vpnToggle.checked) {
-             try{ const r=await fetch('/api/clash.php?action=traffic'); renderVpnTraffic(await r.json()); }catch(e){}
-        } else {
-            const vpnSpeedEl = document.getElementById('vpnSpeed'); 
-            if (vpnSpeedEl) { vpnSpeedEl.textContent = '—'; }
+        // Always show traffic in the card
+        try {
+          const r = await fetch('/api/clash.php?action=traffic');
+          const t = await r.json();
+          const vpnTraffic = document.getElementById('vpnTraffic');
+          const byps = b => (b==null? '—' : ((b/1024).toFixed(b>=1024*100?0:1) + ' KB/s'));
+          if (vpnTraffic) {
+            vpnTraffic.textContent = `↑ ${byps(t.up)} ↓ ${byps(t.down)}`;
+          }
+        } catch(e) {
+          const vpnTraffic = document.getElementById('vpnTraffic');
+          if (vpnTraffic) vpnTraffic.textContent = '—';
         }
       }
       poll(); setInterval(poll, 3000);

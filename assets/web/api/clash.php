@@ -67,8 +67,8 @@ if ($action === 'status') {
         }
     }
 
-    // VPN on if service active, proxy ok, IPs differ, and group is Proxy
-    $vpn_on = $service_active && $proxy_ok && $proxy_ip && $direct_ip && ($proxy_ip !== $direct_ip) && ($vpn_switch_now === 'Proxy');
+    // VPN on if service active, proxy ok, IPs differ, and group is not DIRECT
+    $vpn_on = ($vpn_switch_now !== 'DIRECT');
 
     echo json_encode([
         'vpn_on' => $vpn_on,
