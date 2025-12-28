@@ -57,6 +57,7 @@ if ! ssh -i "$PEM_FILE" -o ConnectTimeout=5 "${REMOTE_USER}@${REMOTE_HOST}" "ech
     exit 1
 fi
 
+
 # Deploy systemd services
 if [ -f "local_configs/mihomo.service" ]; then
     echo "Deploying mihomo.service..."
@@ -66,6 +67,47 @@ fi
 if [ -f "local_configs/aria2.service" ]; then
     echo "Deploying aria2.service..."
     scp -i "$PEM_FILE" local_configs/aria2.service "${REMOTE_USER}@${REMOTE_HOST}:/etc/systemd/system/"
+fi
+
+
+# --- USB Mount Preparation and Validation ---
+if [ -f "local_configs/mnt-usb_data.mount" ]; then
+    echo "Checking exFAT support and USB health on the Pi..."
+    ssh -i "$PEM_FILE" ${REMOTE_USER}@${REMOTE_HOST} '
+        set -e
+        # 1. Ensure exFAT support is installed (exfatprogs replaces exfat-utils)
+        if ! (dpkg -l | grep -q exfat-fuse) || ! (dpkg -l | grep -q exfatprogs); then
+            echo "Installing exFAT support (exfat-fuse, exfatprogs)..."
+            apt-get update && apt-get install -y exfat-fuse exfatprogs
+        else
+            echo "exFAT support already installed."
+        fi
+        # 2. Check device and try manual mount
+        if [ -b /dev/sda1 ]; then
+            echo "USB device /dev/sda1 found. Checking filesystem..."
+            mkdir -p /mnt/usb_data_test
+            if mount -t exfat /dev/sda1 /mnt/usb_data_test 2>/tmp/mount_test.err; then
+                echo "Manual mount succeeded. Running fsck..."
+                umount /mnt/usb_data_test
+                fsck.exfat -a /dev/sda1 || echo "fsck.exfat reported issues (see above)."
+            else
+                echo "Manual mount failed: $(cat /tmp/mount_test.err)"
+                echo "Check USB device and filesystem. Aborting mount unit deployment."
+                exit 1
+            fi
+            rmdir /mnt/usb_data_test
+        else
+            echo "No USB device found at /dev/sda1. Aborting mount unit deployment."
+            exit 1
+        fi
+        # 3. Validate mnt-usb_data.mount config
+        if grep -q '^What=/dev/sda1' /etc/systemd/system/mnt-usb_data.mount 2>/dev/null && grep -q '^Type=exfat' /etc/systemd/system/mnt-usb_data.mount 2>/dev/null; then
+            echo "mnt-usb_data.mount config looks correct."
+        fi
+    '
+    echo "Deploying mnt-usb_data.mount..."
+    scp -i "$PEM_FILE" local_configs/mnt-usb_data.mount "${REMOTE_USER}@${REMOTE_HOST}:/etc/systemd/system/"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "systemctl daemon-reload && systemctl enable --now mnt-usb_data.mount"
 fi
 
 # Deploy Aria2 config
@@ -94,21 +136,11 @@ fi
 
 
 
-
-# Remove all other index.html files except /var/www/html/index.html
-echo "Cleaning up duplicate index.html files on the Pi..."
-ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "find / -type f -name 'index.html' ! -path '/var/www/html/index.html' -delete 2>/dev/null || true"
-
-# Deploy portal web UI
-echo "Deploying portal web UI..."
-scp -i "$PEM_FILE" assets/web/index.html "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/index.html"
 # Deploy project-version.txt for version display
 if [ -f "assets/web/project-version.txt" ]; then
     echo "Deploying project-version.txt..."
     scp -i "$PEM_FILE" assets/web/project-version.txt "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/project-version.txt"
 fi
-# Optionally deploy all assets (uncomment if needed):
-# scp -i "$PEM_FILE" -r assets/web/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/"
 
 # Deploy Nginx config
 if [ -f "local_configs/nginx-default-site" ]; then
@@ -144,41 +176,13 @@ fi
 
 # Deploy VPN page
 
-# Deploy MetaCubeX dashboard
-if [ -d "assets/web/metacubexd" ]; then
-    echo "Deploying MetaCubeX dashboard..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/metacubexd"
-    scp -i "$PEM_FILE" -r assets/web/metacubexd/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/metacubexd/"
-fi
 
-# Deploy Web API scripts
-if [ -d "assets/web/api" ]; then
-    echo "Deploying Web API scripts..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/api"
-    scp -i "$PEM_FILE" assets/web/api/*.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/api/"
-fi
 
-# Deploy php-proxy-app
-if [ -d "assets/web/proxy" ]; then
-    echo "Deploying php-proxy-app..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
-    scp -i "$PEM_FILE" -r assets/web/proxy/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
-fi
 
-# Deploy php-proxy-app (updated folder name)
-if [ -d "assets/web/php-proxy-app" ]; then
-    echo "Deploying php-proxy-app..."
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
-    scp -i "$PEM_FILE" -r assets/web/php-proxy-app/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
-fi
 
-# Deploy System Maintenance API scripts
-for f in assets/web/api/system_update.php assets/web/api/log_tmpfs.php assets/web/api/clear_logs.php; do
-  if [ -f "$f" ]; then
-    echo "Deploying $(basename $f)..."
-    scp -i "$PEM_FILE" "$f" "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/api/"
-  fi
-  done
+
+
+
 
 # Configure USB Auto-Mount (if /dev/sda1 exists and not configured)
 echo "Checking USB storage configuration..."
@@ -264,6 +268,7 @@ if [ "$RESTART_SERVICES" = true ]; then
         systemctl restart nmbd 2>/dev/null || echo "Warning: nmbd not running"
         
         # Set Samba password for dietpi user (required for login)
+        id dietpi >/dev/null 2>&1 || useradd -m dietpi
         (echo "dietpi"; echo "dietpi") | smbpasswd -s -a dietpi
 EOF
 fi

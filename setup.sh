@@ -1,4 +1,4 @@
-#!/bin/bash
+
 
 ###############################################################################
 # setup.sh - Install assets to NanoPi
@@ -31,12 +31,11 @@ if ! ssh -i "$PEM_FILE" -o ConnectTimeout=5 "${REMOTE_USER}@${REMOTE_HOST}" "ech
     exit 1
 fi
 
-# 1. Upload binaries
+# 1. Upload binaries (upload to /tmp, then move with sudo)
 echo "Uploading binaries..."
-ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /usr/local/bin"
 if [ -f "assets/binaries/mihomo" ]; then
-    scp -i "$PEM_FILE" assets/binaries/mihomo "${REMOTE_USER}@${REMOTE_HOST}:/usr/local/bin/"
-    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "chmod +x /usr/local/bin/mihomo"
+    scp -i "$PEM_FILE" assets/binaries/mihomo "${REMOTE_USER}@${REMOTE_HOST}:/tmp/mihomo"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "sudo mkdir -p /usr/local/bin && sudo mv /tmp/mihomo /usr/local/bin/mihomo && sudo chmod +x /usr/local/bin/mihomo"
 else
     echo "Warning: assets/binaries/mihomo not found"
 fi
@@ -71,13 +70,32 @@ if [ -f "assets/web/index.html" ]; then
     scp -i "$PEM_FILE" assets/web/index.html "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/"
 fi
 
-if [ -f "assets/web/vpn.php" ]; then
-    scp -i "$PEM_FILE" assets/web/vpn.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/"
+# 4. Upload Aria2 Web UI (if exists)
+if [ -d "assets/web/aria2webui" ]; then
+    echo "Uploading Aria2 Web UI..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/aria2/docs"
+    scp -i "$PEM_FILE" -r assets/web/aria2webui/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/aria2/docs/"
 fi
+
+# 5. Upload MetaCubeX Dashboard (if exists)
+if [ -d "assets/web/metacubexd" ]; then
+    echo "Uploading MetaCubeX Dashboard..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/metacubexd"
+    scp -i "$PEM_FILE" -r assets/web/metacubexd/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/metacubexd/"
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "chown -R www-data:www-data /var/www/html/metacubexd"
+fi
+#!/bin/bash
 
 # Upload API files if they exist
 if [ -d "assets/web/api" ]; then
     scp -i "$PEM_FILE" assets/web/api/*.php "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/api/" 2>/dev/null || true
+fi
+
+# Upload php-proxy-app if it exists
+if [ -d "assets/web/php-proxy-app" ]; then
+    echo "Uploading php-proxy-app..."
+    ssh -i "$PEM_FILE" "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p /var/www/html/proxy"
+    scp -i "$PEM_FILE" -r assets/web/php-proxy-app/* "${REMOTE_USER}@${REMOTE_HOST}:/var/www/html/proxy/"
 fi
 
 # 4. Install System Dependencies (Filesystem support)

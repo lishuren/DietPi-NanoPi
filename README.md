@@ -25,8 +25,13 @@ Download the correct DietPi image for your device from https://dietpi.com/downlo
 
 Flash to TF card using Etcher (Windows/macOS/Linux) or Win32DiskImager (Windows).
 
-### 2. Copy dietpi.txt to Boot Partition
-After flashing, copy `dietpi.txt` from the project root to the boot partition of the SD card. (Use PowerShell, Finder, or your file manager.)
+### 2. Copy dietpi.txt (and Optional Pre-Script) to Boot Partition
+After flashing, copy `dietpi.txt` from the project root to the boot partition of the SD card. 
+
+**If you are in China or need to bypass GitHub blocks, also copy `Automation_Custom_PreScript.sh` to the boot partition.**
+
+(Use PowerShell, Finder, or your file manager.)
+
 
 ### 3. Boot the Pi
 - Insert TF card into NanoPi
@@ -34,6 +39,15 @@ After flashing, copy `dietpi.txt` from the project root to the boot partition of
 - Connect Ethernet cable
 - Power on
 - **Wait 5-10 minutes** for DietPi auto-install
+
+### 4. First SSH Login (Required)
+After boot, SSH into your Pi for the first time using the default credentials:
+```bash
+ssh root@<your-pi-ip>
+```
+The default password is `dietpi`.
+
+On first login, DietPi may prompt for password changes or run its setup wizard. Complete any required interaction. Once setup finishes, you can disconnect and continue with automated scripts (including running ssh-copy-id to set up key-based authentication).
 
 ### 4. Find Pi IP Address
 Check your router's DHCP client list for a device named "DietPi".
@@ -160,10 +174,26 @@ All operations run from your PC—no manual SSH needed after initial setup!
 
 ## 🛠️ Requirements
 
+
 **Hardware:**
 - NanoPi NEO or NEO2 (ARMv7/ARMv8) or compatible SBC
 - TF card (8GB+ recommended)
-- USB storage device (ext4, exFAT, or NTFS)
+- USB storage device (**must be formatted as exFAT** for auto-mount and download storage; ext4 is also supported, NTFS is not supported by the automated scripts)
+# ⚠️ USB Drive Format Requirement
+
+> **Important:** Your USB drive must be formatted as exFAT (recommended) or ext4 for the automated mount and download storage to work. NTFS is **not supported** by the deployment scripts and will cause mount errors.
+
+If your USB drive is NTFS, reformat it as exFAT before running `./deploy.sh`. Back up your data first!
+
+**How to format as exFAT (Linux):**
+```bash
+sudo apt install exfatprogs
+sudo mkfs.exfat /dev/sdX1  # Replace sdX1 with your USB device
+```
+**How to format as exFAT (Windows/macOS):**
+- Use Disk Management (Windows) or Disk Utility (macOS) and select exFAT as the filesystem.
+
+If you see errors about "wrong fs type, bad option, bad superblock" during deployment, your drive is likely not exFAT or is corrupted.
 
 **Software:**
 - DietPi OS (Debian Bookworm based)
