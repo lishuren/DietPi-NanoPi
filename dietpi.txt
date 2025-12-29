@@ -1,5 +1,5 @@
 # DietPi-Automation
-# This file allows you to automate the setup process of DietPi.
+# This file allows you to automate the setup process of DietPi. 
 # Place this file on the boot partition of your SD card.
 
 # ----- Global Options -----
