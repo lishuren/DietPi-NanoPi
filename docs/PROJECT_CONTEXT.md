@@ -40,7 +40,7 @@ This project is a fully automated "Infrastructure as Code" setup for a NanoPi NE
 
 ### Assets Folder
 - **`assets/binaries/`**: mihomo, country.mmdb, geosite.dat
-  - **`assets/web/`**: vpn.php, index.html
+  - **`assets/web/`**: index.html
 - **`assets/templates/`**: config.yaml (Clash template)
 
 ## 5. Workflows

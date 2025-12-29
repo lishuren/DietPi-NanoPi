@@ -26,7 +26,7 @@ Download these files manually:
 
 
 ### VPN Control Panel
-- **File**: `vpn.php`
+
 - **Description**: Pre-configured PHP page for VPN control
 - **Status**: ✅ Already included
 

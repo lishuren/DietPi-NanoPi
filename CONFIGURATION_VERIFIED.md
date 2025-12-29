@@ -17,7 +17,7 @@
 
 ## ✓ WEB ASSETS (assets/web/)
 - **index.html** - Portal dashboard with stats
-- **vpn.php** - VPN control interface
+
 - **api/aria2.php** - Aria2 RPC statistics (via HTTP)
 - **api/mount.php** - USB mount status and disk usage
 - **api/services.php** - Service health check (systemctl status)

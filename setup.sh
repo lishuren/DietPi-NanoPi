@@ -5,7 +5,7 @@
 # This script:
 # 1. Uploads binaries (mihomo) to /usr/local/bin
 # 2. Uploads config files (country.mmdb, geosite.dat, config.yaml) to /etc/mihomo
-# 3. Uploads web assets (vpn.php, index.html) to /var/www/html
+# 3. Uploads web assets (index.html) to /var/www/html
 ###############################################################################
 
 set -e

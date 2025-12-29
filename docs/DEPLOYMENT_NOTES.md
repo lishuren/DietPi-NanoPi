@@ -84,7 +84,7 @@ See `docs/RUNBOOK.md` for the GitHub Connectivity Blocked troubleshooting sectio
 
 ### Service URLs
 - Portal: http://192.168.0.139/
-- VPN UI: http://192.168.0.139/vpn.php
+
 - Samba: \\192.168.0.139\downloads
 
 ---

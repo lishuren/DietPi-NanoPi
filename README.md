@@ -96,7 +96,7 @@ Install assets and deploy configurations:
 
 ### 8. Access Services
 - **Portal**: http://192.168.1.100/
-- **VPN UI**: http://192.168.1.100/vpn.php
+ 
 - **Samba**: `\\192.168.1.100\downloads` 
 Samba User name: dietpi
 Samba Password: dietpi
@@ -130,7 +130,7 @@ DietPi-NanoPi/
 │
 ├── assets/                 # Binaries & web files
 │   ├── binaries/           # mihomo, country.mmdb, geosite.dat
-│   ├── web/                # vpn.php, index.html, api/
+│   ├── web/                # index.html, api/
 │   └── templates/          # config.yaml
 │
 ├── local_configs/          # Deployed configurations
