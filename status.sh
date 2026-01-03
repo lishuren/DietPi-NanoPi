@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###############################################################################
-# status.sh - Check Pi status and view logs
+# status.sh - Check Pi status and view logs for debug
 # Usage: ./status.sh [service_name]
 #
 # Examples:
